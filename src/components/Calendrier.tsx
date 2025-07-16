@@ -1,50 +1,176 @@
-import React from 'react';
-import { Calendar, Clock, Users, MapPin, Video } from 'lucide-react';
-import { useSessions } from '../hooks/useSessions';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, Users, MapPin, Video, Play, Phone } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useVideoCall } from '../hooks/useVideoCall';
+import { apiClient } from '../lib/api';
+import toast from 'react-hot-toast';
 
 interface CalendrierProps {
   onAuthClick?: (mode: 'login' | 'register') => void;
 }
 
+interface Session {
+  id: string;
+  title: string;
+  description?: string;
+  session_date: string;
+  start_time: string;
+  end_time: string;
+  session_type: 'online' | 'in_person' | 'hybrid';
+  location?: string;
+  meeting_url?: string;
+  meeting_password?: string;
+  max_participants?: number;
+  course_title: string;
+  category: string;
+  level: string;
+  teacher_name: string;
+  enrolled_students: number;
+  hasVideoCall: boolean;
+  canJoinCall: boolean;
+  call_platform?: string;
+}
+
 const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
-  const { sessions, loading } = useSessions();
-  const { isAuthenticated } = useAuth();
-  const { t } = useLanguage();
+  const { isAuthenticated, profile } = useAuth();
+  const { t, isRTL } = useLanguage();
+  const { 
+    createVideoCall, 
+    getSessionVideoCalls, 
+    startVideoCall, 
+    joinVideoCall,
+    getPlatformName,
+    getStatusColor,
+    canJoinCall,
+    canStartCall
+  } = useVideoCall();
   
-  const getDayName = (dateString: string) => {
-    const date = new Date(dateString);
-    const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-    return days[date.getDay()];
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionsByDate, setSessionsByDate] = useState<Record<string, Session[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [stats, setStats] = useState<any>({});
+  const [showVideoCallModal, setShowVideoCallModal] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [videoCallPlatform, setVideoCallPlatform] = useState('google_meet');
+
+  useEffect(() => {
+    fetchCalendarData();
+    fetchCalendarStats();
+  }, [isAuthenticated]);
+
+  const fetchCalendarData = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.getCalendar();
+      setSessions(response.sessions || []);
+      setSessionsByDate(response.sessionsByDate || {});
+    } catch (error) {
+      console.error('Erreur lors de la récupération du calendrier:', error);
+      toast.error(t('common.error'));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getFormattedDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
+  const fetchCalendarStats = async () => {
+    try {
+      const response = await apiClient.getCalendarStats();
+      setStats(response);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des statistiques:', error);
+    }
   };
 
-  const handleEnrollment = (sessionId: string) => {
+  const handleEnrollment = async (sessionId: string) => {
     if (!isAuthenticated) {
       onAuthClick?.('login');
       return;
     }
-    // Handle enrollment logic here
-    console.log('Enrolling in session:', sessionId);
+    
+    // Find the session to get the course ID
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    try {
+      // This would need to be implemented to get course ID from session
+      toast.info(t('courses.enroll'));
+    } catch (error) {
+      toast.error(t('common.error'));
+    }
+  };
+
+  const handleCreateVideoCall = async () => {
+    if (!selectedSession) return;
+
+    try {
+      const result = await createVideoCall(
+        selectedSession.id,
+        videoCallPlatform,
+        `${selectedSession.session_date}T${selectedSession.start_time}`,
+        90
+      );
+
+      if (result.success) {
+        setShowVideoCallModal(false);
+        await fetchCalendarData();
+        toast.success('Appel vidéo créé avec succès !');
+      }
+    } catch (error) {
+      toast.error('Erreur lors de la création de l\'appel vidéo');
+    }
+  };
+
+  const handleJoinVideoCall = async (sessionId: string) => {
+    try {
+      // Get video calls for this session
+      const videoCalls = await getSessionVideoCalls(sessionId);
+      const activeCall = videoCalls.find(call => 
+        call.status === 'in_progress' || call.status === 'scheduled'
+      );
+
+      if (activeCall) {
+        await joinVideoCall(activeCall.id);
+      } else {
+        toast.error('Aucun appel vidéo actif trouvé pour cette session');
+      }
+    } catch (error) {
+      toast.error('Erreur lors de l\'accès à l\'appel vidéo');
+    }
+  };
+
+  const getDayName = (dateString: string) => {
+    const date = new Date(dateString);
+    const days = {
+      fr: ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'],
+      en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      ar: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+    };
+    return days[t('nav.home') === 'Home' ? 'en' : t('nav.home') === 'الرئيسية' ? 'ar' : 'fr'][date.getDay()];
+  };
+
+  const getFormattedDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString(
+      t('nav.home') === 'Home' ? 'en-US' : 
+      t('nav.home') === 'الرئيسية' ? 'ar-SA' : 'fr-FR',
+      {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }
+    );
   };
 
   const getSessionType = (type: string) => {
     switch (type) {
       case 'online':
-        return 'En ligne';
+        return t('calendar.online');
       case 'in_person':
-        return 'Présentiel';
+        return t('calendar.in_person');
       case 'hybrid':
-        return 'Hybride';
+        return t('calendar.hybrid');
       default:
         return type;
     }
@@ -63,19 +189,23 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
     }
   };
 
+  const canCreateVideoCall = (session: Session) => {
+    return profile?.role && ['admin', 'teacher'].includes(profile.role) && !session.hasVideoCall;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 pt-20 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-          <p className="text-gray-600">{t('loading')}...</p>
+          <p className="text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
+    <div className={`min-h-screen bg-gray-50 pt-20 ${isRTL ? 'rtl' : 'ltr'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Header */}
         <div className="text-center mb-16">
@@ -91,7 +221,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                <Calendar className="h-6 w-6 mr-2 text-blue-700" />
+                <Calendar className={`h-6 w-6 text-blue-700 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                 {t('calendar.upcoming_courses')}
               </h2>
               
@@ -101,47 +231,80 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                     <div className="flex justify-between items-start mb-4">
                       <div className="flex-1">
                         <h3 className="text-xl font-semibold text-gray-900 mb-2">{session.title}</h3>
-                        <p className="text-gray-600 mb-3">{session.description || 'Session de cours'}</p>
+                        <p className="text-gray-600 mb-3">{session.description || t('calendar.upcoming_courses')}</p>
                         
                         <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                           <div className="flex items-center">
-                            <Calendar className="h-4 w-4 mr-1" />
+                            <Calendar className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                             {getDayName(session.session_date)} {getFormattedDate(session.session_date)}
                           </div>
                           <div className="flex items-center">
-                            <Clock className="h-4 w-4 mr-1" />
+                            <Clock className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                             {session.start_time} - {session.end_time}
                           </div>
                           <div className="flex items-center">
                             {session.session_type === 'online' ? (
-                              <Video className="h-4 w-4 mr-1" />
+                              <Video className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                             ) : (
-                              <MapPin className="h-4 w-4 mr-1" />
+                              <MapPin className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                             )}
-                            {session.location || session.meeting_url || 'À définir'}
+                            {session.location || session.meeting_url || t('calendar.online')}
                           </div>
                         </div>
                       </div>
                       
-                      <div className="ml-4 text-right">
+                      <div className={`${isRTL ? 'mr-4' : 'ml-4'} text-right`}>
                         <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getSessionTypeColor(session.session_type)}`}>
                           {getSessionType(session.session_type)}
                         </span>
+                        {session.hasVideoCall && (
+                          <div className="mt-2">
+                            <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                              {t('calendar.video_call_scheduled')}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     
                     <div className="flex items-center justify-between">
                       <div className="flex items-center text-sm text-gray-500">
-                        <Users className="h-4 w-4 mr-1" />
-                        {session.max_participants || 'Illimité'} places
+                        <Users className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
+                        {session.enrolled_students} / {session.max_participants || 'Illimité'} {t('courses.places')}
                       </div>
                       
-                      <button 
-                        onClick={() => handleEnrollment(session.id)}
-                        className="bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800 transition-colors duration-200 font-medium"
-                      >
-                        {isAuthenticated ? t('courses.enroll') : t('nav.login')}
-                      </button>
+                      <div className="flex space-x-2">
+                        {/* Video Call Actions */}
+                        {session.hasVideoCall && session.canJoinCall && (
+                          <button 
+                            onClick={() => handleJoinVideoCall(session.id)}
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium flex items-center"
+                          >
+                            <Video className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+                            {t('calendar.join_video_call')}
+                          </button>
+                        )}
+                        
+                        {canCreateVideoCall(session) && (
+                          <button 
+                            onClick={() => {
+                              setSelectedSession(session);
+                              setShowVideoCallModal(true);
+                            }}
+                            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200 font-medium flex items-center"
+                          >
+                            <Phone className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+                            {t('video.start_call')}
+                          </button>
+                        )}
+                        
+                        <button 
+                          onClick={() => handleEnrollment(session.id)}
+                          className="bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800 transition-colors duration-200 font-medium"
+                        >
+                          {isAuthenticated ? t('courses.enroll') : t('nav.login')}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )) : (
@@ -159,28 +322,34 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
           <div className="space-y-6">
             {/* Quick Stats */}
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Statistiques</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">{t('calendar.statistics')}</h3>
               <div className="space-y-4">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Cours cette semaine</span>
-                  <span className="font-semibold text-blue-700">{sessions.length}</span>
+                  <span className="text-gray-600">{t('calendar.courses_this_week')}</span>
+                  <span className="font-semibold text-blue-700">{stats.upcoming_sessions || 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Places disponibles</span>
+                  <span className="text-gray-600">{t('calendar.available_places')}</span>
                   <span className="font-semibold text-green-600">
-                    {sessions.reduce((total, session) => total + (session.max_participants || 0), 0)}
+                    {sessions.reduce((total, session) => total + ((session.max_participants || 0) - session.enrolled_students), 0)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Cours en ligne</span>
+                  <span className="text-gray-600">{t('calendar.online_courses')}</span>
                   <span className="font-semibold text-purple-600">
-                    {sessions.filter(s => s.session_type === 'online').length}
+                    {stats.online_sessions || 0}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Cours présentiels</span>
+                  <span className="text-gray-600">{t('calendar.in_person_courses')}</span>
                   <span className="font-semibold text-orange-600">
-                    {sessions.filter(s => s.session_type === 'in_person').length}
+                    {stats.in_person_sessions || 0}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Appels vidéo</span>
+                  <span className="font-semibold text-green-600">
+                    {stats.sessions_with_video_calls || 0}
                   </span>
                 </div>
               </div>
@@ -188,27 +357,27 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
 
             {/* Legend */}
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Légende</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">{t('calendar.legend')}</h3>
               <div className="space-y-3">
                 <div className="flex items-center">
-                  <div className="w-4 h-4 bg-green-500 rounded-full mr-3"></div>
-                  <span className="text-gray-600">Cours en ligne</span>
+                  <div className={`w-4 h-4 bg-green-500 rounded-full ${isRTL ? 'ml-3' : 'mr-3'}`}></div>
+                  <span className="text-gray-600">{t('calendar.online')}</span>
                 </div>
                 <div className="flex items-center">
-                  <div className="w-4 h-4 bg-blue-500 rounded-full mr-3"></div>
-                  <span className="text-gray-600">Cours présentiel</span>
+                  <div className={`w-4 h-4 bg-blue-500 rounded-full ${isRTL ? 'ml-3' : 'mr-3'}`}></div>
+                  <span className="text-gray-600">{t('calendar.in_person')}</span>
                 </div>
                 <div className="flex items-center">
-                  <div className="w-4 h-4 bg-purple-500 rounded-full mr-3"></div>
-                  <span className="text-gray-600">Cours hybride</span>
+                  <div className={`w-4 h-4 bg-purple-500 rounded-full ${isRTL ? 'ml-3' : 'mr-3'}`}></div>
+                  <span className="text-gray-600">{t('calendar.hybrid')}</span>
                 </div>
                 <div className="flex items-center">
-                  <div className="w-4 h-4 bg-yellow-500 rounded-full mr-3"></div>
-                  <span className="text-gray-600">Places limitées</span>
+                  <div className={`w-4 h-4 bg-yellow-500 rounded-full ${isRTL ? 'ml-3' : 'mr-3'}`}></div>
+                  <span className="text-gray-600">{t('calendar.limited_places')}</span>
                 </div>
                 <div className="flex items-center">
-                  <div className="w-4 h-4 bg-red-500 rounded-full mr-3"></div>
-                  <span className="text-gray-600">Complet</span>
+                  <div className={`w-4 h-4 bg-red-500 rounded-full ${isRTL ? 'ml-3' : 'mr-3'}`}></div>
+                  <span className="text-gray-600">{t('calendar.full')}</span>
                 </div>
               </div>
             </div>
@@ -225,6 +394,66 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
             </div>
           </div>
         </div>
+
+        {/* Video Call Modal */}
+        {showVideoCallModal && selectedSession && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+              <div className="flex justify-between items-center p-6 border-b">
+                <h2 className="text-2xl font-bold text-gray-900">Créer un appel vidéo</h2>
+                <button
+                  onClick={() => setShowVideoCallModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Session
+                  </label>
+                  <p className="text-gray-900 font-medium">{selectedSession.title}</p>
+                  <p className="text-gray-600 text-sm">
+                    {getFormattedDate(selectedSession.session_date)} à {selectedSession.start_time}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Plateforme
+                  </label>
+                  <select
+                    value={videoCallPlatform}
+                    onChange={(e) => setVideoCallPlatform(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="google_meet">Google Meet</option>
+                    <option value="zoom">Zoom</option>
+                    <option value="teams">Microsoft Teams</option>
+                    <option value="jitsi">Jitsi Meet</option>
+                  </select>
+                </div>
+
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={() => setShowVideoCallModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    onClick={handleCreateVideoCall}
+                    className="flex-1 bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition-colors"
+                  >
+                    Créer l'appel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
