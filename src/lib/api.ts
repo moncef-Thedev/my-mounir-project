@@ -220,6 +220,130 @@ class ApiClient {
     });
   }
 
+  // Méthodes pour les appels vidéo
+  async createVideoCall(data: {
+    sessionId: string;
+    platform: string;
+    scheduledFor?: string;
+    duration?: number;
+    participants?: string[];
+  }) {
+    return this.request<{
+      message: string;
+      videoCall: any;
+      meetingUrl: string;
+      meetingPassword?: string;
+    }>('/video-calls', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getSessionVideoCalls(sessionId: string) {
+    return this.request<{
+      videoCalls: any[];
+    }>(`/video-calls/session/${sessionId}`);
+  }
+
+  async startVideoCall(callId: string) {
+    return this.request<{
+      message: string;
+      meetingUrl: string;
+      meetingPassword?: string;
+    }>(`/video-calls/${callId}/start`, {
+      method: 'POST',
+    });
+  }
+
+  async endVideoCall(callId: string) {
+    return this.request<{
+      message: string;
+      actualDuration: number;
+    }>(`/video-calls/${callId}/end`, {
+      method: 'POST',
+    });
+  }
+
+  async joinVideoCall(callId: string) {
+    return this.request<{
+      message: string;
+      meetingUrl: string;
+      meetingPassword?: string;
+      platform: string;
+      sessionTitle: string;
+      courseTitle: string;
+    }>(`/video-calls/${callId}/join`);
+  }
+
+  // Méthodes pour le calendrier
+  async getCalendar(params?: {
+    month?: number;
+    year?: number;
+    courseId?: string;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    const endpoint = `/calendar${searchParams.toString() ? `?${searchParams}` : ''}`;
+    return this.request<{
+      sessions: any[];
+      sessionsByDate: Record<string, any[]>;
+      totalSessions: number;
+    }>(endpoint);
+  }
+
+  async getCalendarDate(date: string) {
+    return this.request<{
+      date: string;
+      sessions: any[];
+    }>(`/calendar/date/${date}`);
+  }
+
+  async getUpcomingSessions(limit?: number) {
+    const endpoint = `/calendar/upcoming${limit ? `?limit=${limit}` : ''}`;
+    return this.request<{
+      upcomingSessions: any[];
+    }>(endpoint);
+  }
+
+  async getCalendarStats(params?: {
+    month?: number;
+    year?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    const endpoint = `/calendar/stats${searchParams.toString() ? `?${searchParams}` : ''}`;
+    return this.request<any>(endpoint);
+  }
+
+  async exportCalendar(courseId?: string) {
+    const endpoint = `/calendar/export${courseId ? `?courseId=${courseId}` : ''}`;
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      headers: {
+        ...(this.token && { Authorization: `Bearer ${this.token}` }),
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error('Erreur lors de l\'export du calendrier');
+    }
+    
+    return response.blob();
+  }
+
   // Méthodes pour les notifications
   async getNotifications() {
     return this.request<{
