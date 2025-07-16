@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: mounir_postgres
+    environment:
+      POSTGRES_DB: mounir_education
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mounir_network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: mounir_backend
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/mounir_education
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      BCRYPT_ROUNDS: 12
+      PORT: 3001
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - mounir_network
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: mounir_frontend
+    environment:
+      VITE_API_URL: http://localhost:3001/api
+      VITE_SUPABASE_URL: YOUR_SUPABASE_URL
+      VITE_SUPABASE_ANON_KEY: YOUR_SUPABASE_ANON_KEY
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - mounir_network
+    restart: unless-stopped
+    volumes:
+      - ./src:/app/src
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+
+networks:
+  mounir_network:
+    driver: bridge
