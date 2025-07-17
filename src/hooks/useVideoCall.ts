@@ -54,7 +54,7 @@ export const useVideoCall = () => {
         sessionId, 
         platform, 
         scheduledFor, 
-        duration,
+        duration: duration || 90,
         participants: []
       });
       
@@ -73,8 +73,9 @@ export const useVideoCall = () => {
     try {
       setLoading(true);
       const response = await apiClient.getSessionVideoCalls(sessionId);
-      setVideoCalls(response.videoCalls || []);
-      return response.videoCalls || [];
+      const calls = response.videoCalls || [];
+      setVideoCalls(calls);
+      return calls;
     } catch (error) {
       console.error('Error fetching video calls:', error);
       return [];
@@ -179,12 +180,24 @@ export const useVideoCall = () => {
     }
   };
 
-  const canJoinCall = (call: VideoCall) =>
-    call.status === 'in_progress' ||
-    (call.status === 'scheduled' && new Date(call.scheduled_for) <= new Date());
+  const canJoinCall = (call: VideoCall) => {
+    const now = new Date();
+    const scheduledTime = new Date(call.scheduled_for);
+    const timeDiff = scheduledTime.getTime() - now.getTime();
+    
+    return call.status === 'in_progress' || 
+           (call.status === 'scheduled' && timeDiff <= 15 * 60 * 1000); // 15 minutes before
+  };
 
-  const canStartCall = (call: VideoCall) =>
-    call.status === 'scheduled' && hasPermission();
+  const canStartCall = (call: VideoCall) => {
+    const now = new Date();
+    const scheduledTime = new Date(call.scheduled_for);
+    const timeDiff = scheduledTime.getTime() - now.getTime();
+    
+    return call.status === 'scheduled' && 
+           hasPermission() && 
+           timeDiff <= 15 * 60 * 1000; // 15 minutes before
+  };
 
   const canEndCall = (call: VideoCall) =>
     call.status === 'in_progress' && hasPermission();

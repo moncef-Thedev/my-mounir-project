@@ -30,6 +30,7 @@ function App() {
     return () => window.removeEventListener('languagechange', handleLanguageChange);
   }, []);
 
+  // Show loading screen while checking authentication
   if (loading) {
     return (
       <div className={`min-h-screen bg-gray-50 flex items-center justify-center ${isRTL ? 'rtl' : 'ltr'}`}>
@@ -160,7 +161,7 @@ function App() {
             <div>
               <h4 className="text-lg font-semibold mb-4">{t('contact.title')}</h4>
               <div className="space-y-2 text-gray-300">
-                <p>📧 mounir.benyahia@exemple.com</p>
+                <p>📧 mounir@exemple.com</p>
                 <p>📞 +33 (0)1 23 45 67 89</p>
                 <p>📍 Casablanca, Maroc</p>
               </div>
@@ -168,7 +169,7 @@ function App() {
           </div>
           
           <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 Mounir Ben Yahia. {t('common.success')}.</p>
+            <p>&copy; 2025 Mounir Ben Yahia. Tous droits réservés.</p>
           </div>
         </div>
       </footer>

@@ -42,14 +42,27 @@ router.post('/', requireTeacher, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    // Check if video call already exists for this session
+    const existingCall = await db.query(
+      'SELECT id FROM video_calls WHERE session_id = $1 AND status IN ($2, $3)',
+      [sessionId, 'scheduled', 'in_progress']
+    );
+
+    if (existingCall.rows.length > 0) {
+      return res.status(409).json({ error: 'Video call already exists for this session' });
+    }
+
     // Generate meeting URL based on platform
     let meetingUrl = '';
     let meetingId = '';
     let meetingPassword = '';
 
+    const timestamp = Date.now();
+    const randomId = Math.floor(Math.random() * 10000);
+
     switch (platform) {
       case 'zoom':
-        meetingId = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+        meetingId = `${timestamp}${randomId}`;
         meetingUrl = `https://zoom.us/j/${meetingId}`;
         meetingPassword = Math.random().toString(36).substring(2, 8).toUpperCase();
         break;
@@ -64,7 +77,7 @@ router.post('/', requireTeacher, async (req, res, next) => {
         meetingId = teamsId;
         break;
       case 'jitsi':
-        const jitsiRoom = Math.random().toString(36).substring(2, 15);
+        const jitsiRoom = `${session.course_title.replace(/\s+/g, '')}-${timestamp}`;
         meetingUrl = `https://meet.jit.si/${jitsiRoom}`;
         meetingId = jitsiRoom;
         break;
@@ -78,9 +91,15 @@ router.post('/', requireTeacher, async (req, res, next) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
-      sessionId, req.user.id, platform, meetingUrl, meetingId,
-      meetingPassword, scheduledFor || session.session_date + ' ' + session.start_time,
-      duration || 90, 'scheduled'
+      sessionId, 
+      req.user.id, 
+      platform, 
+      meetingUrl, 
+      meetingId,
+      meetingPassword, 
+      scheduledFor || `${session.session_date} ${session.start_time}`,
+      duration || 90, 
+      'scheduled'
     ]);
 
     // Update session with meeting URL
@@ -103,7 +122,7 @@ router.post('/', requireTeacher, async (req, res, next) => {
         student.student_id,
         req.user.id,
         'Video call scheduled',
-        `A video call has been scheduled for session "${session.title}" on ${new Date(scheduledFor || session.session_date + ' ' + session.start_time).toLocaleDateString()} at ${session.start_time}. Link: ${meetingUrl}`,
+        `A video call has been scheduled for session "${session.title}" on ${new Date(scheduledFor || `${session.session_date} ${session.start_time}`).toLocaleDateString()} at ${session.start_time}. Platform: ${platform}`,
         'course_reminder',
         session.course_id,
         sessionId
@@ -159,6 +178,8 @@ router.get('/session/:sessionId', async (req, res, next) => {
       params.push(req.user.id);
     }
 
+    accessQuery += ` ORDER BY vc.created_at DESC`;
+
     const result = await db.query(accessQuery, params);
 
     res.json({
@@ -191,6 +212,10 @@ router.post('/:id/start', requireTeacher, async (req, res, next) => {
 
     if (req.user.role !== 'admin' && call.teacher_id !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (call.status !== 'scheduled') {
+      return res.status(400).json({ error: 'Video call cannot be started' });
     }
 
     // Update call status
@@ -241,6 +266,10 @@ router.post('/:id/end', requireTeacher, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    if (call.status !== 'in_progress') {
+      return res.status(400).json({ error: 'Video call is not in progress' });
+    }
+
     // Calculate actual duration
     const actualDuration = call.started_at ? 
       Math.round((new Date() - new Date(call.started_at)) / (1000 * 60)) : 0;
@@ -269,24 +298,33 @@ router.post('/:id/end', requireTeacher, async (req, res, next) => {
   }
 });
 
-// Join video call (students)
-router.get('/:id/join', requireStudent, async (req, res, next) => {
+// Join video call (students and teachers)
+router.get('/:id/join', async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const callResult = await db.query(`
+    let accessQuery = `
       SELECT vc.*, cs.title as session_title, c.title as course_title
       FROM video_calls vc
       JOIN course_sessions cs ON vc.session_id = cs.id
       JOIN courses c ON cs.course_id = c.id
       WHERE vc.id = $1
-      AND EXISTS (
+    `;
+
+    const params = [id];
+
+    // If student, verify enrollment
+    if (req.user.role === 'student') {
+      accessQuery += ` AND EXISTS (
         SELECT 1 FROM enrollments e 
         WHERE e.course_id = c.id 
         AND e.student_id = $2 
         AND e.status = 'active'
-      )
-    `, [id, req.user.id]);
+      )`;
+      params.push(req.user.id);
+    }
+
+    const callResult = await db.query(accessQuery, params);
 
     if (callResult.rows.length === 0) {
       return res.status(404).json({ error: 'Video call not found or access denied' });
@@ -295,17 +333,19 @@ router.get('/:id/join', requireStudent, async (req, res, next) => {
     const call = callResult.rows[0];
 
     // Check if call is available
-    if (call.status !== 'in_progress' && call.status !== 'scheduled') {
+    if (!['in_progress', 'scheduled'].includes(call.status)) {
       return res.status(400).json({ error: 'Video call is not available' });
     }
 
-    // Record participation
-    await db.query(`
-      INSERT INTO video_call_participants (call_id, participant_id, joined_at)
-      VALUES ($1, $2, NOW())
-      ON CONFLICT (call_id, participant_id) 
-      DO UPDATE SET joined_at = NOW()
-    `, [id, req.user.id]);
+    // Record participation for students
+    if (req.user.role === 'student') {
+      await db.query(`
+        INSERT INTO video_call_participants (call_id, participant_id, joined_at)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (call_id, participant_id) 
+        DO UPDATE SET joined_at = NOW()
+      `, [id, req.user.id]);
+    }
 
     res.json({
       message: 'Access granted to video call',

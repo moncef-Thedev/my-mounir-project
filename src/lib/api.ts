@@ -49,7 +49,7 @@ class ApiClient {
     }
   }
 
-  // Méthodes d'authentification
+  // Authentication methods
   async register(data: {
     email: string;
     password: string;
@@ -105,7 +105,7 @@ class ApiClient {
     }>('/auth/verify-token');
   }
 
-  // Méthodes pour les cours
+  // Course methods
   async getCourses(params?: {
     category?: string;
     level?: string;
@@ -159,7 +159,7 @@ class ApiClient {
     });
   }
 
-  // Méthodes pour les inscriptions
+  // Enrollment methods
   async enrollInCourse(courseId: string) {
     return this.request<{
       message: string;
@@ -186,7 +186,7 @@ class ApiClient {
     });
   }
 
-  // Méthodes pour les sessions
+  // Session methods
   async getSessions(courseId?: string) {
     const endpoint = courseId ? `/sessions?courseId=${courseId}` : '/sessions';
     return this.request<{
@@ -220,7 +220,7 @@ class ApiClient {
     });
   }
 
-  // Méthodes pour les appels vidéo
+  // Video call methods
   async createVideoCall(data: {
     sessionId: string;
     platform: string;
@@ -275,7 +275,7 @@ class ApiClient {
     }>(`/video-calls/${callId}/join`);
   }
 
-  // Méthodes pour le calendrier
+  // Calendar methods
   async getCalendar(params?: {
     month?: number;
     year?: number;
@@ -338,13 +338,13 @@ class ApiClient {
     });
     
     if (!response.ok) {
-      throw new Error('Erreur lors de l\'export du calendrier');
+      throw new Error('Error exporting calendar');
     }
     
     return response.blob();
   }
 
-  // Méthodes pour les notifications
+  // Notification methods
   async getNotifications() {
     return this.request<{
       notifications: any[];
@@ -381,7 +381,7 @@ class ApiClient {
     });
   }
 
-  // Méthodes pour le tableau de bord
+  // Dashboard methods
   async getDashboardStats() {
     return this.request<any>('/dashboard/stats');
   }

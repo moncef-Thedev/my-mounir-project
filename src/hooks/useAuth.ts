@@ -21,6 +21,7 @@ interface Profile {
   emergency_contact?: string;
   emergency_phone?: string;
   preferences?: any;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -40,16 +41,20 @@ export const useAuth = () => {
 
   const checkAuthStatus = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('auth_token');
+      
       if (!token) {
         setLoading(false);
         return;
       }
 
       apiClient.setToken(token);
+      
+      // Verify token and get user data
       const response = await apiClient.verifyToken();
       
-      if (response.valid) {
+      if (response.valid && response.user) {
         setUser(response.user);
         await fetchProfile();
       } else {
@@ -76,6 +81,7 @@ export const useAuth = () => {
       setProfile(profileData);
     } catch (error) {
       console.error('Profile fetch error:', error);
+      // Don't clear auth data if profile fetch fails, user might still be valid
     }
   };
 
@@ -88,13 +94,15 @@ export const useAuth = () => {
         fullName,
       });
 
-      apiClient.setToken(response.token);
-      setUser(response.user);
-      await fetchProfile();
-
-      toast.success('Registration successful!');
-      
-      return { success: true, data: response };
+      if (response.token && response.user) {
+        apiClient.setToken(response.token);
+        setUser(response.user);
+        await fetchProfile();
+        toast.success('Registration successful!');
+        return { success: true, data: response };
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Registration failed';
       toast.error(message);
@@ -107,15 +115,20 @@ export const useAuth = () => {
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      const response = await apiClient.login(email, password);
-
-      apiClient.setToken(response.token);
-      setUser(response.user);
-      await fetchProfile();
-
-      toast.success('Login successful!');
       
-      return { success: true, data: response };
+      // Fix the email format issue
+      const cleanEmail = email.trim().toLowerCase();
+      const response = await apiClient.login(cleanEmail, password);
+
+      if (response.token && response.user) {
+        apiClient.setToken(response.token);
+        setUser(response.user);
+        await fetchProfile();
+        toast.success('Login successful!');
+        return { success: true, data: response };
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Login failed';
       toast.error(message);
@@ -154,9 +167,13 @@ export const useAuth = () => {
   const updateProfile = async (updates: Partial<Profile>) => {
     try {
       const response = await apiClient.updateProfile(updates);
-      setProfile(response.profile);
-      toast.success('Profile updated successfully');
-      return { success: true, data: response };
+      if (response.profile) {
+        setProfile(response.profile);
+        toast.success('Profile updated successfully');
+        return { success: true, data: response };
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Profile update failed';
       toast.error(message);
@@ -177,5 +194,6 @@ export const useAuth = () => {
     isAdmin: profile?.role === 'admin',
     isTeacher: profile?.role === 'teacher' || profile?.role === 'admin',
     isStudent: profile?.role === 'student',
+    refreshAuth: checkAuthStatus,
   };
 };

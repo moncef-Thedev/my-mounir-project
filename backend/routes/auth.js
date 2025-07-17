@@ -8,7 +8,7 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Schémas de validation
+// Validation schemas
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(),
@@ -25,7 +25,7 @@ const resetPasswordSchema = Joi.object({
   email: Joi.string().email().required()
 });
 
-// Inscription
+// Register
 router.post('/register', async (req, res, next) => {
   try {
     const { error, value } = registerSchema.validate(req.body);
@@ -35,39 +35,39 @@ router.post('/register', async (req, res, next) => {
 
     const { email, password, fullName, phone } = value;
 
-    // Vérifier si l'utilisateur existe déjà
-    const existingUser = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+    // Check if user already exists
+    const existingUser = await db.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
     if (existingUser.rows.length > 0) {
       return res.status(409).json({ error: 'Un compte avec cet email existe déjà' });
     }
 
-    // Hasher le mot de passe
+    // Hash password
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Créer l'utilisateur
+    // Create user
     const userId = uuidv4();
     
     await db.query('BEGIN');
     
     try {
-      // Insérer dans la table users
+      // Insert into users table
       await db.query(
         'INSERT INTO users (id, email, password_hash, email_verified) VALUES ($1, $2, $3, $4)',
-        [userId, email, passwordHash, false]
+        [userId, email.toLowerCase(), passwordHash, false]
       );
 
-      // Insérer dans la table profiles
+      // Insert into profiles table
       await db.query(
-        'INSERT INTO profiles (id, email, full_name, phone, role) VALUES ($1, $2, $3, $4, $5)',
-        [userId, email, fullName, phone || null, 'student']
+        'INSERT INTO profiles (id, email, full_name, phone, role, is_active) VALUES ($1, $2, $3, $4, $5, $6)',
+        [userId, email.toLowerCase(), fullName, phone || null, 'student', true]
       );
 
       await db.query('COMMIT');
 
-      // Générer le token JWT
+      // Generate JWT token
       const token = jwt.sign(
-        { userId, email, role: 'student' },
+        { userId, email: email.toLowerCase(), role: 'student' },
         process.env.JWT_SECRET,
         { expiresIn: '7d' }
       );
@@ -77,7 +77,7 @@ router.post('/register', async (req, res, next) => {
         token,
         user: {
           id: userId,
-          email,
+          email: email.toLowerCase(),
           fullName,
           role: 'student'
         }
@@ -93,7 +93,7 @@ router.post('/register', async (req, res, next) => {
   }
 });
 
-// Connexion
+// Login
 router.post('/login', async (req, res, next) => {
   try {
     const { error, value } = loginSchema.validate(req.body);
@@ -102,15 +102,16 @@ router.post('/login', async (req, res, next) => {
     }
 
     const { email, password } = value;
+    const cleanEmail = email.toLowerCase().trim();
 
-    // Récupérer l'utilisateur
+    // Get user with profile data
     const userResult = await db.query(
       `SELECT u.id, u.email, u.password_hash, u.login_attempts, u.locked_until,
               p.full_name, p.role, p.is_active
        FROM users u 
        JOIN profiles p ON u.id = p.id 
        WHERE u.email = $1`,
-      [email]
+      [cleanEmail]
     );
 
     if (userResult.rows.length === 0) {
@@ -119,28 +120,28 @@ router.post('/login', async (req, res, next) => {
 
     const user = userResult.rows[0];
 
-    // Vérifier si le compte est verrouillé
+    // Check if account is locked
     if (user.locked_until && new Date() < new Date(user.locked_until)) {
       return res.status(423).json({ 
         error: 'Compte temporairement verrouillé. Réessayez plus tard.' 
       });
     }
 
-    // Vérifier si le compte est actif
+    // Check if account is active
     if (!user.is_active) {
       return res.status(401).json({ error: 'Compte désactivé' });
     }
 
-    // Vérifier le mot de passe
+    // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     
     if (!isValidPassword) {
-      // Incrémenter les tentatives de connexion
+      // Increment login attempts
       const newAttempts = (user.login_attempts || 0) + 1;
       let lockedUntil = null;
       
       if (newAttempts >= 5) {
-        lockedUntil = new Date(Date.now() + 15 * 60 * 1000); // Verrouiller pour 15 minutes
+        lockedUntil = new Date(Date.now() + 15 * 60 * 1000); // Lock for 15 minutes
       }
 
       await db.query(
@@ -151,13 +152,13 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
 
-    // Réinitialiser les tentatives de connexion et mettre à jour la dernière connexion
+    // Reset login attempts and update last login
     await db.query(
       'UPDATE users SET login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1',
       [user.id]
     );
 
-    // Générer le token JWT
+    // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
@@ -180,11 +181,14 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-// Récupérer le profil utilisateur
+// Get user profile
 router.get('/profile', authenticateToken, async (req, res, next) => {
   try {
     const profileResult = await db.query(
-      'SELECT id, email, full_name, phone, role, avatar_url, date_of_birth, address, emergency_contact, emergency_phone, preferences, created_at FROM profiles WHERE id = $1',
+      `SELECT id, email, full_name, phone, role, avatar_url, date_of_birth, 
+              address, emergency_contact, emergency_phone, preferences, 
+              is_active, created_at, updated_at 
+       FROM profiles WHERE id = $1`,
       [req.user.id]
     );
 
@@ -198,7 +202,7 @@ router.get('/profile', authenticateToken, async (req, res, next) => {
   }
 });
 
-// Mettre à jour le profil
+// Update profile
 router.put('/profile', authenticateToken, async (req, res, next) => {
   try {
     const updateSchema = Joi.object({
@@ -239,7 +243,8 @@ router.put('/profile', authenticateToken, async (req, res, next) => {
       UPDATE profiles 
       SET ${updates.join(', ')}, updated_at = NOW() 
       WHERE id = $${paramCount}
-      RETURNING id, email, full_name, phone, role, avatar_url, date_of_birth, address, emergency_contact, emergency_phone, preferences
+      RETURNING id, email, full_name, phone, role, avatar_url, date_of_birth, 
+                address, emergency_contact, emergency_phone, preferences, is_active
     `;
 
     const result = await db.query(query, values);
@@ -254,7 +259,7 @@ router.put('/profile', authenticateToken, async (req, res, next) => {
   }
 });
 
-// Réinitialisation du mot de passe (demande)
+// Reset password request
 router.post('/reset-password', async (req, res, next) => {
   try {
     const { error, value } = resetPasswordSchema.validate(req.body);
@@ -263,26 +268,27 @@ router.post('/reset-password', async (req, res, next) => {
     }
 
     const { email } = value;
+    const cleanEmail = email.toLowerCase().trim();
 
-    // Vérifier si l'utilisateur existe
-    const userResult = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+    // Check if user exists
+    const userResult = await db.query('SELECT id FROM users WHERE email = $1', [cleanEmail]);
     
     if (userResult.rows.length === 0) {
-      // Ne pas révéler si l'email existe ou non pour des raisons de sécurité
+      // Don't reveal if email exists for security
       return res.json({ message: 'Si cet email existe, un lien de réinitialisation a été envoyé' });
     }
 
-    // Générer un token de réinitialisation
+    // Generate reset token
     const resetToken = uuidv4();
-    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await db.query(
       'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE email = $3',
-      [resetToken, resetExpires, email]
+      [resetToken, resetExpires, cleanEmail]
     );
 
-    // TODO: Envoyer l'email avec le lien de réinitialisation
-    console.log(`Token de réinitialisation pour ${email}: ${resetToken}`);
+    // TODO: Send email with reset link
+    console.log(`Reset token for ${cleanEmail}: ${resetToken}`);
 
     res.json({ message: 'Si cet email existe, un lien de réinitialisation a été envoyé' });
 
@@ -291,7 +297,7 @@ router.post('/reset-password', async (req, res, next) => {
   }
 });
 
-// Vérification du token
+// Verify token
 router.get('/verify-token', authenticateToken, (req, res) => {
   res.json({ 
     valid: true, 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Users, MapPin, Video, Play, Phone } from 'lucide-react';
+import { Calendar, Clock, Users, MapPin, Video, Play, Phone, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useVideoCall } from '../hooks/useVideoCall';
@@ -40,8 +40,12 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
     getSessionVideoCalls, 
     startVideoCall, 
     joinVideoCall,
+    endVideoCall,
     getPlatformName,
-    hasPermission
+    hasPermission,
+    canJoinCall,
+    canStartCall,
+    canEndCall
   } = useVideoCall();
   
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -51,6 +55,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
   const [showVideoCallModal, setShowVideoCallModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [videoCallPlatform, setVideoCallPlatform] = useState('google_meet');
+  const [videoCalls, setVideoCalls] = useState<any[]>([]);
 
   useEffect(() => {
     fetchCalendarData();
@@ -61,7 +66,33 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
     try {
       setLoading(true);
       const response = await apiClient.getCalendar();
-      setSessions(response.sessions || []);
+      
+      // Enhance sessions with video call data
+      const enhancedSessions = await Promise.all(
+        (response.sessions || []).map(async (session) => {
+          try {
+            const videoCalls = await getSessionVideoCalls(session.id);
+            const activeCall = videoCalls.find(call => 
+              ['scheduled', 'in_progress'].includes(call.status)
+            );
+            
+            return {
+              ...session,
+              hasVideoCall: !!activeCall,
+              canJoinCall: activeCall ? canJoinCall(activeCall) : false,
+              call_platform: activeCall?.platform
+            };
+          } catch (error) {
+            return {
+              ...session,
+              hasVideoCall: false,
+              canJoinCall: false
+            };
+          }
+        })
+      );
+      
+      setSessions(enhancedSessions);
       setSessionsByDate(response.sessionsByDate || {});
     } catch (error) {
       console.error('Calendar fetch error:', error);
@@ -114,11 +145,43 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
     try {
       const videoCalls = await getSessionVideoCalls(sessionId);
       const activeCall = videoCalls.find(call => 
-        call.status === 'in_progress' || call.status === 'scheduled'
+        ['in_progress', 'scheduled'].includes(call.status)
       );
 
       if (activeCall) {
         await joinVideoCall(activeCall.id);
+      } else {
+        toast.error(t('calendar.video_call_error'));
+      }
+    } catch (error) {
+      toast.error(t('calendar.video_call_error'));
+    }
+  };
+
+  const handleStartVideoCall = async (sessionId: string) => {
+    try {
+      const videoCalls = await getSessionVideoCalls(sessionId);
+      const scheduledCall = videoCalls.find(call => call.status === 'scheduled');
+
+      if (scheduledCall) {
+        await startVideoCall(scheduledCall.id);
+        await fetchCalendarData();
+      } else {
+        toast.error(t('calendar.video_call_error'));
+      }
+    } catch (error) {
+      toast.error(t('calendar.video_call_error'));
+    }
+  };
+
+  const handleEndVideoCall = async (sessionId: string) => {
+    try {
+      const videoCalls = await getSessionVideoCalls(sessionId);
+      const activeCall = videoCalls.find(call => call.status === 'in_progress');
+
+      if (activeCall) {
+        await endVideoCall(activeCall.id);
+        await fetchCalendarData();
       } else {
         toast.error(t('calendar.video_call_error'));
       }
@@ -218,7 +281,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                     <div className="flex justify-between items-start mb-4">
                       <div className="flex-1">
                         <h3 className="text-xl font-semibold text-gray-900 mb-2">{session.title}</h3>
-                        <p className="text-gray-600 mb-3">{session.description || t('calendar.upcoming_courses')}</p>
+                        <p className="text-gray-600 mb-3">{session.description || session.course_title}</p>
                         
                         <div className={`flex flex-wrap gap-4 text-sm text-gray-500 ${isRTL ? 'flex-row-reverse' : ''}`}>
                           <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
@@ -235,7 +298,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                             ) : (
                               <MapPin className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                             )}
-                            {session.location || session.meeting_url || t('calendar.online')}
+                            {session.location || t('calendar.online')}
                           </div>
                         </div>
                       </div>
@@ -247,7 +310,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                         {session.hasVideoCall && (
                           <div className="mt-2">
                             <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                              {t('calendar.video_call_scheduled')}
+                              {session.call_platform ? getPlatformName(session.call_platform as any) : t('calendar.video_call_scheduled')}
                             </span>
                           </div>
                         )}
@@ -270,6 +333,25 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                             <Video className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                             {t('calendar.join_video_call')}
                           </button>
+                        )}
+                        
+                        {hasPermission() && session.hasVideoCall && (
+                          <>
+                            <button 
+                              onClick={() => handleStartVideoCall(session.id)}
+                              className={`bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}
+                            >
+                              <Play className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+                              {t('video.start_call')}
+                            </button>
+                            <button 
+                              onClick={() => handleEndVideoCall(session.id)}
+                              className={`bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 font-medium flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}
+                            >
+                              <X className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+                              {t('video.end_call')}
+                            </button>
+                          </>
                         )}
                         
                         {canCreateVideoCall(session) && (
@@ -392,7 +474,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                   onClick={() => setShowVideoCallModal(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  ×
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
