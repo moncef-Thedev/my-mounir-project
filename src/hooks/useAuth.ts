@@ -29,10 +29,14 @@ export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    checkAuthStatus();
-  }, []);
+    if (!initialized) {
+      checkAuthStatus();
+      setInitialized(true);
+    }
+  }, [initialized]);
 
   const checkAuthStatus = async () => {
     try {
@@ -49,16 +53,21 @@ export const useAuth = () => {
         setUser(response.user);
         await fetchProfile();
       } else {
-        localStorage.removeItem('auth_token');
-        apiClient.setToken(null);
+        clearAuthData();
       }
     } catch (error) {
-      console.error('Erreur de vérification du token:', error);
-      localStorage.removeItem('auth_token');
-      apiClient.setToken(null);
+      console.error('Auth verification error:', error);
+      clearAuthData();
     } finally {
       setLoading(false);
     }
+  };
+
+  const clearAuthData = () => {
+    localStorage.removeItem('auth_token');
+    apiClient.setToken(null);
+    setUser(null);
+    setProfile(null);
   };
 
   const fetchProfile = async () => {
@@ -66,7 +75,7 @@ export const useAuth = () => {
       const profileData = await apiClient.getProfile();
       setProfile(profileData);
     } catch (error) {
-      console.error('Erreur lors de la récupération du profil:', error);
+      console.error('Profile fetch error:', error);
     }
   };
 
@@ -83,16 +92,12 @@ export const useAuth = () => {
       setUser(response.user);
       await fetchProfile();
 
-      toast.success('Inscription réussie !');
-      
-      // Force a small delay to ensure state is updated before routing
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
+      toast.success('Registration successful!');
       
       return { success: true, data: response };
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'inscription');
+      const message = error instanceof Error ? error.message : 'Registration failed';
+      toast.error(message);
       return { success: false, error };
     } finally {
       setLoading(false);
@@ -108,16 +113,12 @@ export const useAuth = () => {
       setUser(response.user);
       await fetchProfile();
 
-      toast.success('Connexion réussie !');
-      
-      // Force a small delay to ensure state is updated before routing
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
+      toast.success('Login successful!');
       
       return { success: true, data: response };
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de la connexion');
+      const message = error instanceof Error ? error.message : 'Login failed';
+      toast.error(message);
       return { success: false, error };
     } finally {
       setLoading(false);
@@ -126,27 +127,26 @@ export const useAuth = () => {
 
   const signOut = async () => {
     try {
-      localStorage.removeItem('auth_token');
-      apiClient.setToken(null);
-      setUser(null);
-      setProfile(null);
-      toast.success('Déconnexion réussie');
+      clearAuthData();
+      toast.success('Logout successful');
       
       // Force page reload to reset application state
-      window.location.reload();
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
     } catch (error) {
-      toast.error('Erreur lors de la déconnexion');
+      toast.error('Logout error');
     }
   };
 
   const resetPassword = async (email: string) => {
     try {
       await apiClient.resetPassword(email);
-
-      toast.success('Email de réinitialisation envoyé !');
+      toast.success('Password reset email sent!');
       return { success: true };
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'envoi de l\'email');
+      const message = error instanceof Error ? error.message : 'Password reset failed';
+      toast.error(message);
       return { success: false, error };
     }
   };
@@ -154,12 +154,12 @@ export const useAuth = () => {
   const updateProfile = async (updates: Partial<Profile>) => {
     try {
       const response = await apiClient.updateProfile(updates);
-
       setProfile(response.profile);
-      toast.success('Profil mis à jour avec succès');
+      toast.success('Profile updated successfully');
       return { success: true, data: response };
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de la mise à jour');
+      const message = error instanceof Error ? error.message : 'Profile update failed';
+      toast.error(message);
       return { success: false, error };
     }
   };

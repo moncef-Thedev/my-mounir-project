@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { apiClient } from '../lib/api';
 import { useAuth } from './useAuth';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../contexts/LanguageContext';
 
 type Platform = 'zoom' | 'google_meet' | 'teams' | 'jitsi';
 type Status = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
@@ -29,7 +30,8 @@ interface VideoCall {
 }
 
 export const useVideoCall = () => {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
+  const { t } = useLanguage();
   const [videoCalls, setVideoCalls] = useState<VideoCall[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -42,17 +44,25 @@ export const useVideoCall = () => {
     duration?: number
   ) => {
     if (!hasPermission()) {
-      toast.error('Vous n\'avez pas les permissions pour créer des appels vidéo');
+      toast.error(t('video.no_permission'));
       return { success: false };
     }
 
     try {
       setLoading(true);
-      const response = await apiClient.createVideoCall({ sessionId, platform, scheduledFor, duration });
-      toast.success('Appel vidéo créé avec succès !');
+      const response = await apiClient.createVideoCall({ 
+        sessionId, 
+        platform, 
+        scheduledFor, 
+        duration,
+        participants: []
+      });
+      
+      toast.success(t('video.call_created'));
       return { success: true, data: response };
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de la création');
+      const message = error instanceof Error ? error.message : t('video.call_error');
+      toast.error(message);
       return { success: false, error };
     } finally {
       setLoading(false);
@@ -66,7 +76,7 @@ export const useVideoCall = () => {
       setVideoCalls(response.videoCalls || []);
       return response.videoCalls || [];
     } catch (error) {
-      toast.error('Erreur lors de la récupération des appels vidéo');
+      console.error('Error fetching video calls:', error);
       return [];
     } finally {
       setLoading(false);
@@ -75,58 +85,66 @@ export const useVideoCall = () => {
 
   const startVideoCall = async (callId: string) => {
     if (!hasPermission()) {
-      toast.error('Vous n\'avez pas les permissions pour démarrer des appels vidéo');
+      toast.error(t('video.no_permission'));
       return { success: false };
     }
 
     try {
       const response = await apiClient.startVideoCall(callId);
-      toast.success('Appel vidéo démarré !');
+      toast.success(t('video.call_in_progress'));
+      
       if (response.meetingUrl) {
-        window.open(response.meetingUrl, '_blank');
-      } else {
-        toast.error('URL de la réunion introuvable');
+        // Open in new window/tab
+        const newWindow = window.open(response.meetingUrl, '_blank', 'noopener,noreferrer');
+        if (!newWindow) {
+          // Fallback if popup blocked
+          window.location.href = response.meetingUrl;
+        }
       }
+      
       return { success: true, data: response };
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors du démarrage');
+      const message = error instanceof Error ? error.message : t('video.call_error');
+      toast.error(message);
       return { success: false, error };
     }
   };
 
   const endVideoCall = async (callId: string) => {
     if (!hasPermission()) {
-      toast.error('Vous n\'avez pas les permissions pour terminer des appels vidéo');
+      toast.error(t('video.no_permission'));
       return { success: false };
     }
 
     try {
       const response = await apiClient.endVideoCall(callId);
-      toast.success('Appel vidéo terminé !');
+      toast.success(t('video.call_ended'));
       return { success: true, data: response };
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de la fin de l\'appel');
+      const message = error instanceof Error ? error.message : t('video.call_error');
+      toast.error(message);
       return { success: false, error };
     }
   };
 
   const joinVideoCall = async (callId: string) => {
-    if (!user) {
-      toast.error('Vous devez être connecté pour rejoindre un appel');
-      return { success: false };
-    }
-
     try {
       const response = await apiClient.joinVideoCall(callId);
-      toast.success('Accès autorisé à l\'appel vidéo !');
+      toast.success(t('video.join_call'));
+      
       if (response.meetingUrl) {
-        window.open(response.meetingUrl, '_blank');
-      } else {
-        toast.error('URL de la réunion introuvable');
+        // Open in new window/tab
+        const newWindow = window.open(response.meetingUrl, '_blank', 'noopener,noreferrer');
+        if (!newWindow) {
+          // Fallback if popup blocked
+          window.location.href = response.meetingUrl;
+        }
       }
+      
       return { success: true, data: response };
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'accès à l\'appel');
+      const message = error instanceof Error ? error.message : t('video.call_error');
+      toast.error(message);
       return { success: false, error };
     }
   };
@@ -153,10 +171,10 @@ export const useVideoCall = () => {
 
   const getStatusText = (status: Status) => {
     switch (status) {
-      case 'scheduled': return 'Programmé';
-      case 'in_progress': return 'En cours';
-      case 'completed': return 'Terminé';
-      case 'cancelled': return 'Annulé';
+      case 'scheduled': return t('video.call_scheduled');
+      case 'in_progress': return t('video.call_in_progress');
+      case 'completed': return t('video.call_ended');
+      case 'cancelled': return 'Cancelled';
       default: return status;
     }
   };
@@ -184,6 +202,7 @@ export const useVideoCall = () => {
     getStatusText,
     canJoinCall,
     canStartCall,
-    canEndCall
+    canEndCall,
+    hasPermission
   };
 };

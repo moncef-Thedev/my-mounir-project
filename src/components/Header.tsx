@@ -13,7 +13,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ currentSection, onSectionChange, onAuthClick }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const { isAuthenticated, profile, signOut } = useAuth();
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
 
   const menuItems = [
     { id: 'accueil', label: t('nav.home') },
@@ -24,17 +24,17 @@ const Header: React.FC<HeaderProps> = ({ currentSection, onSectionChange, onAuth
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm shadow-lg">
+    <header className={`fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm shadow-lg ${isRTL ? 'rtl' : 'ltr'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 ${isRTL ? 'space-x-reverse' : ''}`}>
             <BookOpen className="h-8 w-8 text-blue-700" />
             <span className="text-xl font-bold text-gray-900">Mounir Ben Yahia</span>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8">
+          <nav className={`hidden md:flex space-x-8 ${isRTL ? 'space-x-reverse' : ''}`}>
             {menuItems.map((item) => (
               <button
                 key={item.id}
@@ -51,11 +51,11 @@ const Header: React.FC<HeaderProps> = ({ currentSection, onSectionChange, onAuth
           </nav>
 
           {/* Auth Section */}
-          <div className="hidden md:flex items-center space-x-2">
+          <div className={`hidden md:flex items-center space-x-2 ${isRTL ? 'space-x-reverse' : ''}`}>
             <LanguageSwitcher />
             {isAuthenticated ? (
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2">
+              <div className={`flex items-center space-x-3 ${isRTL ? 'space-x-reverse' : ''}`}>
+                <div className={`flex items-center space-x-2 ${isRTL ? 'space-x-reverse' : ''}`}>
                   <User className="h-5 w-5 text-gray-600" />
                   <span className="text-sm text-gray-700">{profile?.full_name}</span>
                 </div>
@@ -67,7 +67,7 @@ const Header: React.FC<HeaderProps> = ({ currentSection, onSectionChange, onAuth
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-3">
+              <div className={`flex items-center space-x-3 ${isRTL ? 'space-x-reverse' : ''}`}>
                 <button
                   onClick={() => onAuthClick?.('login')}
                   className="text-sm text-gray-700 hover:text-blue-700 transition-colors"
@@ -107,7 +107,7 @@ const Header: React.FC<HeaderProps> = ({ currentSection, onSectionChange, onAuth
                   currentSection === item.id
                     ? 'text-blue-700 bg-blue-50'
                     : 'text-gray-700 hover:text-blue-700 hover:bg-gray-50'
-                }`}
+                } ${isRTL ? 'text-right' : 'text-left'}`}
               >
                 {item.label}
               </button>
@@ -120,13 +120,13 @@ const Header: React.FC<HeaderProps> = ({ currentSection, onSectionChange, onAuth
               </div>
               {isAuthenticated ? (
                 <div className="space-y-2">
-                  <div className="flex items-center space-x-2 px-3 py-2">
+                  <div className={`flex items-center space-x-2 px-3 py-2 ${isRTL ? 'space-x-reverse' : ''}`}>
                     <User className="h-5 w-5 text-gray-600" />
                     <span className="text-sm text-gray-700">{profile?.full_name}</span>
                   </div>
                   <button
                     onClick={signOut}
-                    className="w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 transition-colors"
+                    className={`w-full px-3 py-2 text-red-600 hover:bg-red-50 transition-colors ${isRTL ? 'text-right' : 'text-left'}`}
                   >
                     {t('nav.logout')}
                   </button>
@@ -138,7 +138,7 @@ const Header: React.FC<HeaderProps> = ({ currentSection, onSectionChange, onAuth
                       onAuthClick?.('login');
                       setIsMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                    className={`w-full px-3 py-2 text-gray-700 hover:bg-gray-50 transition-colors ${isRTL ? 'text-right' : 'text-left'}`}
                   >
                     {t('nav.login')}
                   </button>
@@ -147,7 +147,7 @@ const Header: React.FC<HeaderProps> = ({ currentSection, onSectionChange, onAuth
                       onAuthClick?.('register');
                       setIsMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
+                    className={`w-full px-3 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors ${isRTL ? 'text-right' : 'text-left'}`}
                   >
                     {t('nav.register')}
                   </button>

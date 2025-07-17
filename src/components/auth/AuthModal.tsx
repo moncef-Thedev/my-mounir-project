@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -9,7 +10,7 @@ interface AuthModalProps {
 }
 
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'login' }) => {
-  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -19,11 +20,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
   });
 
   const { signIn, signUp, resetPassword, loading } = useAuth();
+  const { t, isRTL } = useLanguage();
 
   // Update mode when initialMode changes
   React.useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
+      resetForm();
     }
   }, [isOpen, initialMode]);
 
@@ -63,6 +66,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
       fullName: '',
       confirmPassword: ''
     });
+    setShowPassword(false);
   };
 
   const switchMode = (newMode: 'login' | 'register' | 'reset') => {
@@ -74,12 +78,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+      <div className={`bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 ${isRTL ? 'rtl' : 'ltr'}`}>
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-2xl font-bold text-gray-900">
-            {mode === 'login' && 'Connexion'}
-            {mode === 'register' && 'Inscription'}
-            {mode === 'reset' && 'Réinitialiser le mot de passe'}
+            {mode === 'login' && t('auth.login')}
+            {mode === 'register' && t('auth.register')}
+            {mode === 'reset' && t('auth.reset_password')}
           </h2>
           <button
             onClick={onClose}
@@ -93,10 +97,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
           {mode === 'register' && (
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
-                Nom complet
+                {t('auth.full_name')}
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <User className={`absolute top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 ${isRTL ? 'right-3' : 'left-3'}`} />
                 <input
                   type="text"
                   id="fullName"
@@ -104,8 +108,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
                   value={formData.fullName}
                   onChange={handleInputChange}
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Votre nom complet"
+                  className={`w-full py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'}`}
+                  placeholder={t('auth.full_name')}
                 />
               </div>
             </div>
@@ -113,10 +117,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email
+              {t('auth.email')}
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Mail className={`absolute top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 ${isRTL ? 'right-3' : 'left-3'}`} />
               <input
                 type="email"
                 id="email"
@@ -124,8 +128,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
                 value={formData.email}
                 onChange={handleInputChange}
                 required
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="votre@email.com"
+                className={`w-full py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'}`}
+                placeholder={t('auth.email')}
               />
             </div>
           </div>
@@ -133,10 +137,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
           {mode !== 'reset' && (
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Mot de passe
+                {t('auth.password')}
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Lock className={`absolute top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 ${isRTL ? 'right-3' : 'left-3'}`} />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   id="password"
@@ -144,13 +148,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
                   value={formData.password}
                   onChange={handleInputChange}
                   required
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isRTL ? 'pr-10 pl-12' : 'pl-10 pr-12'}`}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className={`absolute top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 ${isRTL ? 'left-3' : 'right-3'}`}
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -161,10 +165,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
           {mode === 'register' && (
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                Confirmer le mot de passe
+                {t('auth.confirm_password')}
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Lock className={`absolute top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 ${isRTL ? 'right-3' : 'left-3'}`} />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   id="confirmPassword"
@@ -172,12 +176,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'}`}
                   placeholder="••••••••"
                 />
               </div>
               {formData.password !== formData.confirmPassword && formData.confirmPassword && (
-                <p className="text-red-500 text-sm mt-1">Les mots de passe ne correspondent pas</p>
+                <p className="text-red-500 text-sm mt-1">{t('auth.passwords_dont_match')}</p>
               )}
             </div>
           )}
@@ -187,11 +191,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
             disabled={loading}
             className="w-full bg-blue-700 text-white py-3 rounded-lg hover:bg-blue-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Chargement...' : (
+            {loading ? t('common.loading') : (
               <>
-                {mode === 'login' && 'Se connecter'}
-                {mode === 'register' && 'S\'inscrire'}
-                {mode === 'reset' && 'Envoyer le lien'}
+                {mode === 'login' && t('auth.sign_in')}
+                {mode === 'register' && t('auth.sign_up')}
+                {mode === 'reset' && t('auth.send_reset_link')}
               </>
             )}
           </button>
@@ -204,15 +208,15 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
                 onClick={() => switchMode('reset')}
                 className="w-full text-blue-700 hover:text-blue-800 text-sm"
               >
-                Mot de passe oublié ?
+                {t('auth.forgot_password')}
               </button>
               <div className="text-center text-sm text-gray-600">
-                Pas encore de compte ?{' '}
+                {t('auth.no_account')}{' '}
                 <button
                   onClick={() => switchMode('register')}
                   className="text-blue-700 hover:text-blue-800 font-medium"
                 >
-                  S'inscrire
+                  {t('auth.register')}
                 </button>
               </div>
             </>
@@ -220,24 +224,23 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
 
           {mode === 'register' && (
             <div className="text-center text-sm text-gray-600">
-              Déjà un compte ?{' '}
+              {t('auth.have_account')}{' '}
               <button
                 onClick={() => switchMode('login')}
                 className="text-blue-700 hover:text-blue-800 font-medium"
               >
-                Se connecter
+                {t('auth.login')}
               </button>
             </div>
           )}
 
           {mode === 'reset' && (
             <div className="text-center text-sm text-gray-600">
-              Retour à la{' '}
               <button
                 onClick={() => switchMode('login')}
                 className="text-blue-700 hover:text-blue-800 font-medium"
               >
-                connexion
+                {t('auth.back_to_login')}
               </button>
             </div>
           )}

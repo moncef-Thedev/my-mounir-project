@@ -5,16 +5,16 @@ const { requireTeacher, requireStudent } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Schéma de validation pour créer un appel vidéo
+// Validation schema for creating video calls
 const videoCallSchema = Joi.object({
   sessionId: Joi.string().uuid().required(),
-  platform: Joi.string().valid('zoom', 'google_meet', 'teams').required(),
+  platform: Joi.string().valid('zoom', 'google_meet', 'teams', 'jitsi').required(),
   scheduledFor: Joi.date().optional(),
-  duration: Joi.number().integer().min(15).max(480).optional(), // 15 minutes to 8 hours
+  duration: Joi.number().integer().min(15).max(480).optional(),
   participants: Joi.array().items(Joi.string().uuid()).optional()
 });
 
-// Créer un appel vidéo (enseignants seulement)
+// Create video call (teachers/admins only)
 router.post('/', requireTeacher, async (req, res, next) => {
   try {
     const { error, value } = videoCallSchema.validate(req.body);
@@ -22,9 +22,9 @@ router.post('/', requireTeacher, async (req, res, next) => {
       return res.status(400).json({ error: error.details[0].message });
     }
 
-    const { sessionId, platform, scheduledFor, duration, participants } = value;
+    const { sessionId, platform, scheduledFor, duration } = value;
 
-    // Vérifier que la session existe et appartient à l'enseignant
+    // Verify session exists and user has permission
     const sessionResult = await db.query(`
       SELECT cs.*, c.teacher_id, c.title as course_title
       FROM course_sessions cs
@@ -33,16 +33,16 @@ router.post('/', requireTeacher, async (req, res, next) => {
     `, [sessionId]);
 
     if (sessionResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Session non trouvée' });
+      return res.status(404).json({ error: 'Session not found' });
     }
 
     const session = sessionResult.rows[0];
 
     if (req.user.role !== 'admin' && session.teacher_id !== req.user.id) {
-      return res.status(403).json({ error: 'Vous ne pouvez créer des appels que pour vos propres sessions' });
+      return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Générer l'URL de l'appel selon la plateforme
+    // Generate meeting URL based on platform
     let meetingUrl = '';
     let meetingId = '';
     let meetingPassword = '';
@@ -63,9 +63,14 @@ router.post('/', requireTeacher, async (req, res, next) => {
         meetingUrl = `https://teams.microsoft.com/l/meetup-join/${teamsId}`;
         meetingId = teamsId;
         break;
+      case 'jitsi':
+        const jitsiRoom = Math.random().toString(36).substring(2, 15);
+        meetingUrl = `https://meet.jit.si/${jitsiRoom}`;
+        meetingId = jitsiRoom;
+        break;
     }
 
-    // Créer l'appel vidéo
+    // Create video call record
     const result = await db.query(`
       INSERT INTO video_calls (
         session_id, created_by, platform, meeting_url, meeting_id, 
@@ -78,14 +83,14 @@ router.post('/', requireTeacher, async (req, res, next) => {
       duration || 90, 'scheduled'
     ]);
 
-    // Mettre à jour la session avec l'URL de l'appel
+    // Update session with meeting URL
     await db.query(`
       UPDATE course_sessions 
       SET meeting_url = $1, meeting_password = $2, updated_at = NOW()
       WHERE id = $3
     `, [meetingUrl, meetingPassword, sessionId]);
 
-    // Notifier tous les étudiants inscrits
+    // Notify enrolled students
     const enrolledStudents = await db.query(`
       SELECT e.student_id, p.full_name, p.email
       FROM enrollments e
@@ -97,8 +102,8 @@ router.post('/', requireTeacher, async (req, res, next) => {
       const notifications = enrolledStudents.rows.map(student => [
         student.student_id,
         req.user.id,
-        'Appel vidéo programmé',
-        `Un appel vidéo a été programmé pour la session "${session.title}" le ${new Date(scheduledFor || session.session_date + ' ' + session.start_time).toLocaleDateString('fr-FR')} à ${session.start_time}. Lien: ${meetingUrl}`,
+        'Video call scheduled',
+        `A video call has been scheduled for session "${session.title}" on ${new Date(scheduledFor || session.session_date + ' ' + session.start_time).toLocaleDateString()} at ${session.start_time}. Link: ${meetingUrl}`,
         'course_reminder',
         session.course_id,
         sessionId
@@ -115,7 +120,7 @@ router.post('/', requireTeacher, async (req, res, next) => {
     }
 
     res.status(201).json({
-      message: 'Appel vidéo créé avec succès',
+      message: 'Video call created successfully',
       videoCall: result.rows[0],
       meetingUrl,
       meetingPassword: meetingPassword || null
@@ -126,12 +131,11 @@ router.post('/', requireTeacher, async (req, res, next) => {
   }
 });
 
-// Récupérer les appels vidéo d'une session
+// Get video calls for a session
 router.get('/session/:sessionId', async (req, res, next) => {
   try {
     const { sessionId } = req.params;
 
-    // Vérifier l'accès à la session
     let accessQuery = `
       SELECT vc.*, cs.title as session_title, c.title as course_title,
              p.full_name as created_by_name
@@ -144,7 +148,7 @@ router.get('/session/:sessionId', async (req, res, next) => {
 
     const params = [sessionId];
 
-    // Si c'est un étudiant, vérifier qu'il est inscrit
+    // If student, verify enrollment
     if (req.user.role === 'student') {
       accessQuery += ` AND EXISTS (
         SELECT 1 FROM enrollments e 
@@ -166,12 +170,11 @@ router.get('/session/:sessionId', async (req, res, next) => {
   }
 });
 
-// Démarrer un appel vidéo
+// Start video call
 router.post('/:id/start', requireTeacher, async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Vérifier que l'appel existe et appartient à l'enseignant
     const callResult = await db.query(`
       SELECT vc.*, cs.course_id, c.teacher_id
       FROM video_calls vc
@@ -181,23 +184,23 @@ router.post('/:id/start', requireTeacher, async (req, res, next) => {
     `, [id]);
 
     if (callResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Appel vidéo non trouvé' });
+      return res.status(404).json({ error: 'Video call not found' });
     }
 
     const call = callResult.rows[0];
 
     if (req.user.role !== 'admin' && call.teacher_id !== req.user.id) {
-      return res.status(403).json({ error: 'Accès non autorisé' });
+      return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Mettre à jour le statut de l'appel
+    // Update call status
     await db.query(`
       UPDATE video_calls 
       SET status = 'in_progress', started_at = NOW(), updated_at = NOW()
       WHERE id = $1
     `, [id]);
 
-    // Mettre à jour le statut de la session
+    // Update session status
     await db.query(`
       UPDATE course_sessions 
       SET status = 'in_progress', updated_at = NOW()
@@ -205,7 +208,7 @@ router.post('/:id/start', requireTeacher, async (req, res, next) => {
     `, [call.session_id]);
 
     res.json({
-      message: 'Appel vidéo démarré',
+      message: 'Video call started',
       meetingUrl: call.meeting_url,
       meetingPassword: call.meeting_password
     });
@@ -215,12 +218,11 @@ router.post('/:id/start', requireTeacher, async (req, res, next) => {
   }
 });
 
-// Terminer un appel vidéo
+// End video call
 router.post('/:id/end', requireTeacher, async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Vérifier que l'appel existe et appartient à l'enseignant
     const callResult = await db.query(`
       SELECT vc.*, cs.course_id, c.teacher_id
       FROM video_calls vc
@@ -230,27 +232,27 @@ router.post('/:id/end', requireTeacher, async (req, res, next) => {
     `, [id]);
 
     if (callResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Appel vidéo non trouvé' });
+      return res.status(404).json({ error: 'Video call not found' });
     }
 
     const call = callResult.rows[0];
 
     if (req.user.role !== 'admin' && call.teacher_id !== req.user.id) {
-      return res.status(403).json({ error: 'Accès non autorisé' });
+      return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Calculer la durée réelle
+    // Calculate actual duration
     const actualDuration = call.started_at ? 
       Math.round((new Date() - new Date(call.started_at)) / (1000 * 60)) : 0;
 
-    // Mettre à jour le statut de l'appel
+    // Update call status
     await db.query(`
       UPDATE video_calls 
       SET status = 'completed', ended_at = NOW(), actual_duration_minutes = $1, updated_at = NOW()
       WHERE id = $2
     `, [actualDuration, id]);
 
-    // Mettre à jour le statut de la session
+    // Update session status
     await db.query(`
       UPDATE course_sessions 
       SET status = 'completed', updated_at = NOW()
@@ -258,7 +260,7 @@ router.post('/:id/end', requireTeacher, async (req, res, next) => {
     `, [call.session_id]);
 
     res.json({
-      message: 'Appel vidéo terminé',
+      message: 'Video call ended',
       actualDuration
     });
 
@@ -267,12 +269,11 @@ router.post('/:id/end', requireTeacher, async (req, res, next) => {
   }
 });
 
-// Rejoindre un appel vidéo (étudiants)
+// Join video call (students)
 router.get('/:id/join', requireStudent, async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Vérifier que l'appel existe et que l'étudiant y a accès
     const callResult = await db.query(`
       SELECT vc.*, cs.title as session_title, c.title as course_title
       FROM video_calls vc
@@ -288,17 +289,17 @@ router.get('/:id/join', requireStudent, async (req, res, next) => {
     `, [id, req.user.id]);
 
     if (callResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Appel vidéo non trouvé ou accès non autorisé' });
+      return res.status(404).json({ error: 'Video call not found or access denied' });
     }
 
     const call = callResult.rows[0];
 
-    // Vérifier que l'appel est actif
+    // Check if call is available
     if (call.status !== 'in_progress' && call.status !== 'scheduled') {
-      return res.status(400).json({ error: 'Cet appel vidéo n\'est pas disponible' });
+      return res.status(400).json({ error: 'Video call is not available' });
     }
 
-    // Enregistrer la participation
+    // Record participation
     await db.query(`
       INSERT INTO video_call_participants (call_id, participant_id, joined_at)
       VALUES ($1, $2, NOW())
@@ -307,7 +308,7 @@ router.get('/:id/join', requireStudent, async (req, res, next) => {
     `, [id, req.user.id]);
 
     res.json({
-      message: 'Accès autorisé à l\'appel vidéo',
+      message: 'Access granted to video call',
       meetingUrl: call.meeting_url,
       meetingPassword: call.meeting_password,
       platform: call.platform,

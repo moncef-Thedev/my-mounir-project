@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import Header from './components/Header';
 import Accueil from './components/Accueil';
@@ -10,46 +10,66 @@ import AuthModal from './components/auth/AuthModal';
 import StudentDashboard from './components/dashboard/StudentDashboard';
 import AdminDashboard from './components/dashboard/AdminDashboard';
 import { useAuth } from './hooks/useAuth';
+import { useLanguage } from './contexts/LanguageContext';
 
 function App() {
-  const { isAuthenticated, isAdmin, isStudent, loading, profile } = useAuth();
+  const { isAuthenticated, profile, loading } = useAuth();
+  const { t, isRTL } = useLanguage();
   const [currentSection, setCurrentSection] = useState('accueil');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
+  // Handle language changes
+  useEffect(() => {
+    const handleLanguageChange = () => {
+      // Force re-render when language changes
+      setCurrentSection(prev => prev);
+    };
+
+    window.addEventListener('languagechange', handleLanguageChange);
+    return () => window.removeEventListener('languagechange', handleLanguageChange);
+  }, []);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`min-h-screen bg-gray-50 flex items-center justify-center ${isRTL ? 'rtl' : 'ltr'}`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement...</p>
+          <p className="text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
     );
   }
 
-  // Si l'utilisateur est connecté, afficher le tableau de bord approprié
-  if (isAuthenticated) {
-    if (profile?.role === 'admin') {
+  // Redirect authenticated users to appropriate dashboard
+  if (isAuthenticated && profile) {
+    if (profile.role === 'admin' || profile.role === 'teacher') {
       return (
-        <>
+        <div className={isRTL ? 'rtl' : 'ltr'}>
           <AdminDashboard />
-          <Toaster position="top-right" />
-        </>
+          <Toaster 
+            position={isRTL ? "top-left" : "top-right"}
+            toastOptions={{
+              style: {
+                direction: isRTL ? 'rtl' : 'ltr',
+              },
+            }}
+          />
+        </div>
       );
-    } else if (profile?.role === 'student') {
+    } else if (profile.role === 'student') {
       return (
-        <>
+        <div className={isRTL ? 'rtl' : 'ltr'}>
           <StudentDashboard />
-          <Toaster position="top-right" />
-        </>
-      );
-    } else if (profile?.role === 'teacher') {
-      return (
-        <>
-          <AdminDashboard />
-          <Toaster position="top-right" />
-        </>
+          <Toaster 
+            position={isRTL ? "top-left" : "top-right"}
+            toastOptions={{
+              style: {
+                direction: isRTL ? 'rtl' : 'ltr',
+              },
+            }}
+          />
+        </div>
       );
     }
   }
@@ -75,7 +95,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen bg-gray-50 ${isRTL ? 'rtl' : 'ltr'}`}>
       <Header 
         currentSection={currentSection} 
         onSectionChange={setCurrentSection}
@@ -95,19 +115,19 @@ function App() {
             <div>
               <h3 className="text-xl font-bold mb-4">Mounir Ben Yahia</h3>
               <p className="text-gray-300 mb-4">
-                Enseignant retraité spécialisé dans le soutien scolaire primaire avec 30+ années d'expérience et des techniques pédagogiques innovantes.
+                {t('home.subtitle')}
               </p>
             </div>
             
             <div>
-              <h4 className="text-lg font-semibold mb-4">Liens Rapides</h4>
+              <h4 className="text-lg font-semibold mb-4">{t('nav.home')}</h4>
               <ul className="space-y-2 text-gray-300">
                 <li>
                   <button 
                     onClick={() => setCurrentSection('accueil')}
                     className="hover:text-white transition-colors duration-200"
                   >
-                    Accueil
+                    {t('nav.home')}
                   </button>
                 </li>
                 <li>
@@ -115,7 +135,7 @@ function App() {
                     onClick={() => setCurrentSection('apropos')}
                     className="hover:text-white transition-colors duration-200"
                   >
-                    À propos
+                    {t('nav.about')}
                   </button>
                 </li>
                 <li>
@@ -123,7 +143,7 @@ function App() {
                     onClick={() => setCurrentSection('cours')}
                     className="hover:text-white transition-colors duration-200"
                   >
-                    Cours
+                    {t('nav.courses')}
                   </button>
                 </li>
                 <li>
@@ -131,14 +151,14 @@ function App() {
                     onClick={() => setCurrentSection('calendrier')}
                     className="hover:text-white transition-colors duration-200"
                   >
-                    Calendrier
+                    {t('nav.calendar')}
                   </button>
                 </li>
               </ul>
             </div>
             
             <div>
-              <h4 className="text-lg font-semibold mb-4">Contact</h4>
+              <h4 className="text-lg font-semibold mb-4">{t('contact.title')}</h4>
               <div className="space-y-2 text-gray-300">
                 <p>📧 mounir.benyahia@exemple.com</p>
                 <p>📞 +33 (0)1 23 45 67 89</p>
@@ -148,7 +168,7 @@ function App() {
           </div>
           
           <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 Mounir Ben Yahia. Tous droits réservés.</p>
+            <p>&copy; 2025 Mounir Ben Yahia. {t('common.success')}.</p>
           </div>
         </div>
       </footer>
@@ -159,7 +179,14 @@ function App() {
         initialMode={authMode}
       />
       
-      <Toaster position="top-right" />
+      <Toaster 
+        position={isRTL ? "top-left" : "top-right"}
+        toastOptions={{
+          style: {
+            direction: isRTL ? 'rtl' : 'ltr',
+          },
+        }}
+      />
     </div>
   );
 }

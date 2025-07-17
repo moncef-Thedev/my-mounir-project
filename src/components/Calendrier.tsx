@@ -41,15 +41,12 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
     startVideoCall, 
     joinVideoCall,
     getPlatformName,
-    getStatusColor,
-    canJoinCall,
-    canStartCall
+    hasPermission
   } = useVideoCall();
   
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsByDate, setSessionsByDate] = useState<Record<string, Session[]>>({});
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [stats, setStats] = useState<any>({});
   const [showVideoCallModal, setShowVideoCallModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -67,7 +64,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
       setSessions(response.sessions || []);
       setSessionsByDate(response.sessionsByDate || {});
     } catch (error) {
-      console.error('Erreur lors de la récupération du calendrier:', error);
+      console.error('Calendar fetch error:', error);
       toast.error(t('common.error'));
     } finally {
       setLoading(false);
@@ -79,7 +76,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
       const response = await apiClient.getCalendarStats();
       setStats(response);
     } catch (error) {
-      console.error('Erreur lors de la récupération des statistiques:', error);
+      console.error('Stats fetch error:', error);
     }
   };
 
@@ -89,16 +86,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
       return;
     }
     
-    // Find the session to get the course ID
-    const session = sessions.find(s => s.id === sessionId);
-    if (!session) return;
-
-    try {
-      // This would need to be implemented to get course ID from session
-      toast.info(t('courses.enroll'));
-    } catch (error) {
-      toast.error(t('common.error'));
-    }
+    toast.info(t('courses.enroll'));
   };
 
   const handleCreateVideoCall = async () => {
@@ -107,7 +95,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
     try {
       const result = await createVideoCall(
         selectedSession.id,
-        videoCallPlatform,
+        videoCallPlatform as any,
         `${selectedSession.session_date}T${selectedSession.start_time}`,
         90
       );
@@ -115,16 +103,15 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
       if (result.success) {
         setShowVideoCallModal(false);
         await fetchCalendarData();
-        toast.success('Appel vidéo créé avec succès !');
+        toast.success(t('calendar.video_call_created'));
       }
     } catch (error) {
-      toast.error('Erreur lors de la création de l\'appel vidéo');
+      toast.error(t('calendar.video_call_error'));
     }
   };
 
   const handleJoinVideoCall = async (sessionId: string) => {
     try {
-      // Get video calls for this session
       const videoCalls = await getSessionVideoCalls(sessionId);
       const activeCall = videoCalls.find(call => 
         call.status === 'in_progress' || call.status === 'scheduled'
@@ -133,10 +120,10 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
       if (activeCall) {
         await joinVideoCall(activeCall.id);
       } else {
-        toast.error('Aucun appel vidéo actif trouvé pour cette session');
+        toast.error(t('calendar.video_call_error'));
       }
     } catch (error) {
-      toast.error('Erreur lors de l\'accès à l\'appel vidéo');
+      toast.error(t('calendar.video_call_error'));
     }
   };
 
@@ -147,20 +134,20 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
       en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
       ar: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
     };
-    return days[t('nav.home') === 'Home' ? 'en' : t('nav.home') === 'الرئيسية' ? 'ar' : 'fr'][date.getDay()];
+    const lang = t('nav.home') === 'Home' ? 'en' : t('nav.home') === 'الرئيسية' ? 'ar' : 'fr';
+    return days[lang][date.getDay()];
   };
 
   const getFormattedDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString(
-      t('nav.home') === 'Home' ? 'en-US' : 
-      t('nav.home') === 'الرئيسية' ? 'ar-SA' : 'fr-FR',
-      {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      }
-    );
+    const lang = t('nav.home') === 'Home' ? 'en-US' : 
+                 t('nav.home') === 'الرئيسية' ? 'ar-SA' : 'fr-FR';
+    
+    return date.toLocaleDateString(lang, {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
   };
 
   const getSessionType = (type: string) => {
@@ -190,12 +177,12 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
   };
 
   const canCreateVideoCall = (session: Session) => {
-    return profile?.role && ['admin', 'teacher'].includes(profile.role) && !session.hasVideoCall;
+    return hasPermission() && !session.hasVideoCall;
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20 flex items-center justify-center">
+      <div className={`min-h-screen bg-gray-50 pt-20 flex items-center justify-center ${isRTL ? 'rtl' : 'ltr'}`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
           <p className="text-gray-600">{t('common.loading')}</p>
@@ -220,7 +207,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
           {/* Upcoming Events */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+              <h2 className={`text-2xl font-bold text-gray-900 mb-6 flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <Calendar className={`h-6 w-6 text-blue-700 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                 {t('calendar.upcoming_courses')}
               </h2>
@@ -233,16 +220,16 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                         <h3 className="text-xl font-semibold text-gray-900 mb-2">{session.title}</h3>
                         <p className="text-gray-600 mb-3">{session.description || t('calendar.upcoming_courses')}</p>
                         
-                        <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                          <div className="flex items-center">
+                        <div className={`flex flex-wrap gap-4 text-sm text-gray-500 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
                             <Calendar className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                             {getDayName(session.session_date)} {getFormattedDate(session.session_date)}
                           </div>
-                          <div className="flex items-center">
+                          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
                             <Clock className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                             {session.start_time} - {session.end_time}
                           </div>
-                          <div className="flex items-center">
+                          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
                             {session.session_type === 'online' ? (
                               <Video className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                             ) : (
@@ -253,7 +240,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                         </div>
                       </div>
                       
-                      <div className={`${isRTL ? 'mr-4' : 'ml-4'} text-right`}>
+                      <div className={`text-center ${isRTL ? 'mr-4' : 'ml-4'}`}>
                         <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getSessionTypeColor(session.session_type)}`}>
                           {getSessionType(session.session_type)}
                         </span>
@@ -268,17 +255,17 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                     </div>
                     
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center text-sm text-gray-500">
+                      <div className={`flex items-center text-sm text-gray-500 ${isRTL ? 'flex-row-reverse' : ''}`}>
                         <Users className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                         {session.enrolled_students} / {session.max_participants || 'Illimité'} {t('courses.places')}
                       </div>
                       
-                      <div className="flex space-x-2">
+                      <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                         {/* Video Call Actions */}
                         {session.hasVideoCall && session.canJoinCall && (
                           <button 
                             onClick={() => handleJoinVideoCall(session.id)}
-                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium flex items-center"
+                            className={`bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}
                           >
                             <Video className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                             {t('calendar.join_video_call')}
@@ -291,10 +278,10 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                               setSelectedSession(session);
                               setShowVideoCallModal(true);
                             }}
-                            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200 font-medium flex items-center"
+                            className={`bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200 font-medium flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}
                           >
                             <Phone className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                            {t('video.start_call')}
+                            {t('video.create_call')}
                           </button>
                         )}
                         
@@ -347,7 +334,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Appels vidéo</span>
+                  <span className="text-gray-600">{t('video.participants')}</span>
                   <span className="font-semibold text-green-600">
                     {stats.sessions_with_video_calls || 0}
                   </span>
@@ -359,23 +346,23 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">{t('calendar.legend')}</h3>
               <div className="space-y-3">
-                <div className="flex items-center">
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <div className={`w-4 h-4 bg-green-500 rounded-full ${isRTL ? 'ml-3' : 'mr-3'}`}></div>
                   <span className="text-gray-600">{t('calendar.online')}</span>
                 </div>
-                <div className="flex items-center">
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <div className={`w-4 h-4 bg-blue-500 rounded-full ${isRTL ? 'ml-3' : 'mr-3'}`}></div>
                   <span className="text-gray-600">{t('calendar.in_person')}</span>
                 </div>
-                <div className="flex items-center">
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <div className={`w-4 h-4 bg-purple-500 rounded-full ${isRTL ? 'ml-3' : 'mr-3'}`}></div>
                   <span className="text-gray-600">{t('calendar.hybrid')}</span>
                 </div>
-                <div className="flex items-center">
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <div className={`w-4 h-4 bg-yellow-500 rounded-full ${isRTL ? 'ml-3' : 'mr-3'}`}></div>
                   <span className="text-gray-600">{t('calendar.limited_places')}</span>
                 </div>
-                <div className="flex items-center">
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <div className={`w-4 h-4 bg-red-500 rounded-full ${isRTL ? 'ml-3' : 'mr-3'}`}></div>
                   <span className="text-gray-600">{t('calendar.full')}</span>
                 </div>
@@ -384,12 +371,12 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
 
             {/* Contact Info */}
             <div className="bg-gradient-to-br from-blue-700 to-blue-900 rounded-xl p-6 text-white">
-              <h3 className="text-xl font-bold mb-4">Besoin d'aide ?</h3>
+              <h3 className="text-xl font-bold mb-4">{t('contact.title')}</h3>
               <p className="text-blue-100 mb-4">
-                Contactez-nous pour toute question concernant les horaires ou les inscriptions.
+                {t('contact.subtitle')}
               </p>
               <button className="bg-white text-blue-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors duration-200">
-                Nous contacter
+                {t('contact.title')}
               </button>
             </div>
           </div>
@@ -398,9 +385,9 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
         {/* Video Call Modal */}
         {showVideoCallModal && selectedSession && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div className={`bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 ${isRTL ? 'rtl' : 'ltr'}`}>
               <div className="flex justify-between items-center p-6 border-b">
-                <h2 className="text-2xl font-bold text-gray-900">Créer un appel vidéo</h2>
+                <h2 className="text-2xl font-bold text-gray-900">{t('video.create_call')}</h2>
                 <button
                   onClick={() => setShowVideoCallModal(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -412,17 +399,17 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
               <div className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Session
+                    {t('common.title')}
                   </label>
                   <p className="text-gray-900 font-medium">{selectedSession.title}</p>
                   <p className="text-gray-600 text-sm">
-                    {getFormattedDate(selectedSession.session_date)} à {selectedSession.start_time}
+                    {getFormattedDate(selectedSession.session_date)} {t('common.time')} {selectedSession.start_time}
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Plateforme
+                    {t('video.select_platform')}
                   </label>
                   <select
                     value={videoCallPlatform}
@@ -436,7 +423,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                   </select>
                 </div>
 
-                <div className="flex space-x-3 pt-4">
+                <div className={`flex gap-3 pt-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <button
                     onClick={() => setShowVideoCallModal(false)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -447,7 +434,7 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                     onClick={handleCreateVideoCall}
                     className="flex-1 bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition-colors"
                   >
-                    Créer l'appel
+                    {t('video.create_call')}
                   </button>
                 </div>
               </div>

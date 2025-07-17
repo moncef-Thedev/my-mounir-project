@@ -84,6 +84,9 @@ const translations = {
     'calendar.full': 'Complet',
     'calendar.join_video_call': 'Rejoindre l\'appel vidéo',
     'calendar.video_call_scheduled': 'Appel vidéo programmé',
+    'calendar.create_video_call': 'Créer un appel vidéo',
+    'calendar.video_call_created': 'Appel vidéo créé avec succès',
+    'calendar.video_call_error': 'Erreur lors de la création de l\'appel vidéo',
     
     // Contact page
     'contact.title': 'Contact',
@@ -119,6 +122,11 @@ const translations = {
     'dashboard.access': 'Accéder',
     'dashboard.download': 'Télécharger',
     'dashboard.mark_all_read': 'Tout marquer comme lu',
+    'dashboard.student_dashboard': 'Tableau de bord étudiant',
+    'dashboard.admin_dashboard': 'Tableau de bord administrateur',
+    'dashboard.manage_courses': 'Gérer les cours',
+    'dashboard.manage_students': 'Gérer les étudiants',
+    'dashboard.manage_sessions': 'Gérer les sessions',
     
     // Video calls
     'video.join_call': 'Rejoindre l\'appel',
@@ -132,6 +140,11 @@ const translations = {
     'video.platform': 'Plateforme',
     'video.duration': 'Durée',
     'video.participants': 'Participants',
+    'video.create_call': 'Créer un appel',
+    'video.select_platform': 'Sélectionner la plateforme',
+    'video.call_created': 'Appel créé avec succès',
+    'video.call_error': 'Erreur lors de la création de l\'appel',
+    'video.no_permission': 'Vous n\'avez pas les permissions pour cette action',
     
     // Authentication
     'auth.login': 'Connexion',
@@ -148,6 +161,13 @@ const translations = {
     'auth.reset_password': 'Réinitialiser le mot de passe',
     'auth.send_reset_link': 'Envoyer le lien',
     'auth.back_to_login': 'Retour à la connexion',
+    'auth.login_success': 'Connexion réussie',
+    'auth.register_success': 'Inscription réussie',
+    'auth.logout_success': 'Déconnexion réussie',
+    'auth.login_error': 'Erreur de connexion',
+    'auth.register_error': 'Erreur d\'inscription',
+    'auth.invalid_credentials': 'Identifiants invalides',
+    'auth.passwords_dont_match': 'Les mots de passe ne correspondent pas',
     
     // Common
     'common.loading': 'Chargement...',
@@ -177,6 +197,11 @@ const translations = {
     'common.free': 'Gratuit',
     'common.required': 'Requis',
     'common.optional': 'Optionnel',
+    'common.confirm': 'Confirmer',
+    'common.back': 'Retour',
+    'common.next': 'Suivant',
+    'common.previous': 'Précédent',
+    'common.submit': 'Soumettre',
   },
   en: {
     // Navigation
@@ -252,6 +277,9 @@ const translations = {
     'calendar.full': 'Full',
     'calendar.join_video_call': 'Join video call',
     'calendar.video_call_scheduled': 'Video call scheduled',
+    'calendar.create_video_call': 'Create video call',
+    'calendar.video_call_created': 'Video call created successfully',
+    'calendar.video_call_error': 'Error creating video call',
     
     // Contact page
     'contact.title': 'Contact',
@@ -287,6 +315,11 @@ const translations = {
     'dashboard.access': 'Access',
     'dashboard.download': 'Download',
     'dashboard.mark_all_read': 'Mark all as read',
+    'dashboard.student_dashboard': 'Student Dashboard',
+    'dashboard.admin_dashboard': 'Admin Dashboard',
+    'dashboard.manage_courses': 'Manage Courses',
+    'dashboard.manage_students': 'Manage Students',
+    'dashboard.manage_sessions': 'Manage Sessions',
     
     // Video calls
     'video.join_call': 'Join call',
@@ -300,6 +333,11 @@ const translations = {
     'video.platform': 'Platform',
     'video.duration': 'Duration',
     'video.participants': 'Participants',
+    'video.create_call': 'Create call',
+    'video.select_platform': 'Select platform',
+    'video.call_created': 'Call created successfully',
+    'video.call_error': 'Error creating call',
+    'video.no_permission': 'You don\'t have permission for this action',
     
     // Authentication
     'auth.login': 'Login',
@@ -316,6 +354,13 @@ const translations = {
     'auth.reset_password': 'Reset password',
     'auth.send_reset_link': 'Send reset link',
     'auth.back_to_login': 'Back to login',
+    'auth.login_success': 'Login successful',
+    'auth.register_success': 'Registration successful',
+    'auth.logout_success': 'Logout successful',
+    'auth.login_error': 'Login error',
+    'auth.register_error': 'Registration error',
+    'auth.invalid_credentials': 'Invalid credentials',
+    'auth.passwords_dont_match': 'Passwords don\'t match',
     
     // Common
     'common.loading': 'Loading...',
@@ -345,6 +390,11 @@ const translations = {
     'common.free': 'Free',
     'common.required': 'Required',
     'common.optional': 'Optional',
+    'common.confirm': 'Confirm',
+    'common.back': 'Back',
+    'common.next': 'Next',
+    'common.previous': 'Previous',
+    'common.submit': 'Submit',
   },
   ar: {
     // Navigation
@@ -420,6 +470,9 @@ const translations = {
     'calendar.full': 'مكتمل',
     'calendar.join_video_call': 'انضم للمكالمة المرئية',
     'calendar.video_call_scheduled': 'مكالمة مرئية مجدولة',
+    'calendar.create_video_call': 'إنشاء مكالمة مرئية',
+    'calendar.video_call_created': 'تم إنشاء المكالمة المرئية بنجاح',
+    'calendar.video_call_error': 'خطأ في إنشاء المكالمة المرئية',
     
     // Contact page
     'contact.title': 'اتصل',
@@ -455,6 +508,11 @@ const translations = {
     'dashboard.access': 'الوصول',
     'dashboard.download': 'تحميل',
     'dashboard.mark_all_read': 'تحديد الكل كمقروء',
+    'dashboard.student_dashboard': 'لوحة تحكم الطالب',
+    'dashboard.admin_dashboard': 'لوحة تحكم المدير',
+    'dashboard.manage_courses': 'إدارة الدورات',
+    'dashboard.manage_students': 'إدارة الطلاب',
+    'dashboard.manage_sessions': 'إدارة الجلسات',
     
     // Video calls
     'video.join_call': 'انضم للمكالمة',
@@ -468,6 +526,11 @@ const translations = {
     'video.platform': 'المنصة',
     'video.duration': 'المدة',
     'video.participants': 'المشاركون',
+    'video.create_call': 'إنشاء مكالمة',
+    'video.select_platform': 'اختر المنصة',
+    'video.call_created': 'تم إنشاء المكالمة بنجاح',
+    'video.call_error': 'خطأ في إنشاء المكالمة',
+    'video.no_permission': 'ليس لديك صلاحية لهذا الإجراء',
     
     // Authentication
     'auth.login': 'تسجيل الدخول',
@@ -484,6 +547,13 @@ const translations = {
     'auth.reset_password': 'إعادة تعيين كلمة المرور',
     'auth.send_reset_link': 'إرسال رابط الإعادة',
     'auth.back_to_login': 'العودة لتسجيل الدخول',
+    'auth.login_success': 'تم تسجيل الدخول بنجاح',
+    'auth.register_success': 'تم التسجيل بنجاح',
+    'auth.logout_success': 'تم تسجيل الخروج بنجاح',
+    'auth.login_error': 'خطأ في تسجيل الدخول',
+    'auth.register_error': 'خطأ في التسجيل',
+    'auth.invalid_credentials': 'بيانات اعتماد غير صحيحة',
+    'auth.passwords_dont_match': 'كلمات المرور غير متطابقة',
     
     // Common
     'common.loading': 'جاري التحميل...',
@@ -513,6 +583,11 @@ const translations = {
     'common.free': 'مجاني',
     'common.required': 'مطلوب',
     'common.optional': 'اختياري',
+    'common.confirm': 'تأكيد',
+    'common.back': 'رجوع',
+    'common.next': 'التالي',
+    'common.previous': 'السابق',
+    'common.submit': 'إرسال',
   }
 };
 
@@ -525,13 +600,13 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const savedLanguage = localStorage.getItem('language') as Language;
     if (savedLanguage && ['fr', 'en', 'ar'].includes(savedLanguage)) {
       setLanguage(savedLanguage);
+      updateDocumentLanguage(savedLanguage);
+    } else {
+      updateDocumentLanguage('fr');
     }
   }, []);
 
-  const handleSetLanguage = (lang: Language) => {
-    setLanguage(lang);
-    localStorage.setItem('language', lang);
-    
+  const updateDocumentLanguage = (lang: Language) => {
     // Update document direction for Arabic
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = lang;
@@ -539,10 +614,28 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Update body class for language-specific styling
     document.body.className = document.body.className.replace(/lang-\w+/g, '');
     document.body.classList.add(`lang-${lang}`);
+    
+    // Add CSS for RTL support
+    if (lang === 'ar') {
+      document.body.style.fontFamily = 'Arial, sans-serif';
+      document.body.style.textAlign = 'right';
+    } else {
+      document.body.style.fontFamily = '';
+      document.body.style.textAlign = '';
+    }
+  };
+
+  const handleSetLanguage = (lang: Language) => {
+    setLanguage(lang);
+    localStorage.setItem('language', lang);
+    updateDocumentLanguage(lang);
+    
+    // Force re-render of all components
+    window.dispatchEvent(new Event('languagechange'));
   };
 
   const t = (key: string): string => {
-    const translation = translations[language][key];
+    const translation = translations[language]?.[key];
     if (!translation) {
       console.warn(`Translation missing for key: ${key} in language: ${language}`);
       return key;
@@ -551,13 +644,6 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const isRTL = language === 'ar';
-
-  // Set initial direction and language
-  useEffect(() => {
-    document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
-    document.documentElement.lang = language;
-    document.body.classList.add(`lang-${language}`);
-  }, [language, isRTL]);
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage: handleSetLanguage, t, isRTL }}>
