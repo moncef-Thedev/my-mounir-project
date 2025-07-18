@@ -31,8 +31,8 @@ function App() {
     );
   }
 
-  // Redirect authenticated users to appropriate dashboard
-  if (isAuthenticated && profile) {
+  // Show dashboard for authenticated users
+  if (isAuthenticated && profile && currentSection === 'dashboard') {
     return (
       <div className={isRTL ? 'rtl' : 'ltr'}>
         {(profile.role === 'admin' || profile.role === 'teacher') ? (
@@ -52,7 +52,22 @@ function App() {
     );
   }
 
+  // Auto-redirect to dashboard after successful login
+  useEffect(() => {
+    if (isAuthenticated && profile && currentSection !== 'dashboard') {
+      setCurrentSection('dashboard');
+    }
+  }, [isAuthenticated, profile]);
+
   const renderCurrentSection = () => {
+    if (currentSection === 'dashboard' && isAuthenticated && profile) {
+      return (profile.role === 'admin' || profile.role === 'teacher') ? (
+        <AdminDashboard />
+      ) : (
+        <StudentDashboard />
+      );
+    }
+    
     switch (currentSection) {
       case 'accueil':
         return <Accueil />;
