@@ -22,7 +22,7 @@ const StudentDashboard: React.FC = () => {
         <div className="bg-blue-50 p-6 rounded-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-600 text-sm font-medium">Cours inscrits</p>
+              <p className="text-blue-600 text-sm font-medium">{t('dashboard.enrolled_courses')}</p>
               <p className="text-2xl font-bold text-blue-900">{enrolledCourses.length}</p>
             </div>
             <BookOpen className="h-8 w-8 text-blue-600" />
@@ -32,7 +32,7 @@ const StudentDashboard: React.FC = () => {
         <div className="bg-green-50 p-6 rounded-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-600 text-sm font-medium">Prochaines sessions</p>
+              <p className="text-green-600 text-sm font-medium">{t('dashboard.upcoming_sessions')}</p>
               <p className="text-2xl font-bold text-green-900">{upcomingSessions.length}</p>
             </div>
             <Calendar className="h-8 w-8 text-green-600" />
@@ -42,7 +42,7 @@ const StudentDashboard: React.FC = () => {
         <div className="bg-yellow-50 p-6 rounded-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-yellow-600 text-sm font-medium">Notifications</p>
+              <p className="text-yellow-600 text-sm font-medium">{t('dashboard.notifications')}</p>
               <p className="text-2xl font-bold text-yellow-900">{unreadCount}</p>
             </div>
             <Bell className="h-8 w-8 text-yellow-600" />
@@ -52,7 +52,7 @@ const StudentDashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Prochaines Sessions</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-4">{t('dashboard.upcoming_sessions')}</h3>
           <div className="space-y-3">
             {upcomingSessions.length > 0 ? (
               upcomingSessions.map((session) => (
@@ -60,25 +60,25 @@ const StudentDashboard: React.FC = () => {
                   <div>
                     <p className="font-medium text-gray-900">{session.title}</p>
                     <p className="text-sm text-gray-600">
-                      {new Date(session.session_date).toLocaleDateString('fr-FR')} à {session.start_time}
+                      {new Date(session.session_date).toLocaleDateString()} à {session.start_time}
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
                     {session.session_type === 'online' && (
-                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">En ligne</span>
+                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">{t('calendar.online')}</span>
                     )}
                     <Clock className="h-4 w-4 text-gray-400" />
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-center py-4">Aucune session programmée</p>
+              <p className="text-gray-500 text-center py-4">{t('dashboard.no_sessions')}</p>
             )}
           </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Notifications Récentes</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-4">{t('dashboard.recent_notifications')}</h3>
           <div className="space-y-3">
             {recentNotifications.length > 0 ? (
               recentNotifications.map((notification) => (
@@ -92,12 +92,12 @@ const StudentDashboard: React.FC = () => {
                   <p className="font-medium text-gray-900">{notification.title}</p>
                   <p className="text-sm text-gray-600 line-clamp-2">{notification.message}</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    {new Date(notification.created_at).toLocaleDateString('fr-FR')}
+                    {new Date(notification.created_at).toLocaleDateString()}
                   </p>
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-center py-4">Aucune notification</p>
+              <p className="text-gray-500 text-center py-4">{t('dashboard.no_notifications')}</p>
             )}
           </div>
         </div>

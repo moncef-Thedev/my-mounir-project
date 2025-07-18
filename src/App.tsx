@@ -19,17 +19,6 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
-  // Handle language changes
-  useEffect(() => {
-    const handleLanguageChange = () => {
-      // Force re-render when language changes
-      setCurrentSection(prev => prev);
-    };
-
-    window.addEventListener('languagechange', handleLanguageChange);
-    return () => window.removeEventListener('languagechange', handleLanguageChange);
-  }, []);
-
   // Show loading screen while checking authentication
   if (loading) {
     return (
@@ -44,35 +33,23 @@ function App() {
 
   // Redirect authenticated users to appropriate dashboard
   if (isAuthenticated && profile) {
-    if (profile.role === 'admin' || profile.role === 'teacher') {
-      return (
-        <div className={isRTL ? 'rtl' : 'ltr'}>
+    return (
+      <div className={isRTL ? 'rtl' : 'ltr'}>
+        {(profile.role === 'admin' || profile.role === 'teacher') ? (
           <AdminDashboard />
-          <Toaster 
-            position={isRTL ? "top-left" : "top-right"}
-            toastOptions={{
-              style: {
-                direction: isRTL ? 'rtl' : 'ltr',
-              },
-            }}
-          />
-        </div>
-      );
-    } else if (profile.role === 'student') {
-      return (
-        <div className={isRTL ? 'rtl' : 'ltr'}>
+        ) : (
           <StudentDashboard />
-          <Toaster 
-            position={isRTL ? "top-left" : "top-right"}
-            toastOptions={{
-              style: {
-                direction: isRTL ? 'rtl' : 'ltr',
-              },
-            }}
-          />
-        </div>
-      );
-    }
+        )}
+        <Toaster 
+          position={isRTL ? "top-left" : "top-right"}
+          toastOptions={{
+            style: {
+              direction: isRTL ? 'rtl' : 'ltr',
+            },
+          }}
+        />
+      </div>
+    );
   }
 
   const renderCurrentSection = () => {

@@ -133,11 +133,11 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
 
       if (result.success) {
         setShowVideoCallModal(false);
+        setSelectedSession(null);
         await fetchCalendarData();
-        toast.success(t('calendar.video_call_created'));
       }
     } catch (error) {
-      toast.error(t('calendar.video_call_error'));
+      console.error('Video call creation error:', error);
     }
   };
 
@@ -339,17 +339,17 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                           <>
                             <button 
                               onClick={() => handleStartVideoCall(session.id)}
-                              className={`bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}
+                              className={`bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium flex items-center text-sm ${isRTL ? 'flex-row-reverse' : ''}`}
                             >
                               <Play className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                              {t('video.start_call')}
+                              Start
                             </button>
                             <button 
                               onClick={() => handleEndVideoCall(session.id)}
-                              className={`bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 font-medium flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}
+                              className={`bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 font-medium flex items-center text-sm ${isRTL ? 'flex-row-reverse' : ''}`}
                             >
                               <X className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                              {t('video.end_call')}
+                              End
                             </button>
                           </>
                         )}
@@ -360,10 +360,10 @@ const Calendrier: React.FC<CalendrierProps> = ({ onAuthClick }) => {
                               setSelectedSession(session);
                               setShowVideoCallModal(true);
                             }}
-                            className={`bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200 font-medium flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}
+                            className={`bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200 font-medium flex items-center text-sm ${isRTL ? 'flex-row-reverse' : ''}`}
                           >
                             <Phone className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                            {t('video.create_call')}
+                            Video Call
                           </button>
                         )}
                         

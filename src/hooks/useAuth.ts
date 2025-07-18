@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '../lib/api';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface User {
   id: string;
@@ -30,14 +31,11 @@ export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
-    if (!initialized) {
-      checkAuthStatus();
-      setInitialized(true);
-    }
-  }, [initialized]);
+    checkAuthStatus();
+  }, []);
 
   const checkAuthStatus = async () => {
     try {
@@ -45,21 +43,29 @@ export const useAuth = () => {
       const token = localStorage.getItem('auth_token');
       
       if (!token) {
+        setUser(null);
+        setProfile(null);
         setLoading(false);
         return;
       }
 
       apiClient.setToken(token);
       
-      // Verify token and get user data
-      const response = await apiClient.verifyToken();
-      
-      if (response.valid && response.user) {
-        setUser(response.user);
-        await fetchProfile();
-      } else {
+      try {
+        // Verify token and get user data
+        const response = await apiClient.verifyToken();
+        
+        if (response.valid && response.user) {
+          setUser(response.user);
+          await fetchProfile();
+        } else {
+          clearAuthData();
+        }
+      } catch (verifyError) {
+        console.error('Token verification failed:', verifyError);
         clearAuthData();
       }
+      
     } catch (error) {
       console.error('Auth verification error:', error);
       clearAuthData();
@@ -78,10 +84,13 @@ export const useAuth = () => {
   const fetchProfile = async () => {
     try {
       const profileData = await apiClient.getProfile();
-      setProfile(profileData);
+      if (profileData) {
+        setProfile(profileData);
+      }
     } catch (error) {
       console.error('Profile fetch error:', error);
-      // Don't clear auth data if profile fetch fails, user might still be valid
+      // If profile fetch fails, clear auth data
+      clearAuthData();
     }
   };
 
@@ -116,21 +125,25 @@ export const useAuth = () => {
     try {
       setLoading(true);
       
-      // Fix the email format issue
+      // Clean and normalize email
       const cleanEmail = email.trim().toLowerCase();
+      
+      // Handle common email variations
+      const normalizedEmail = cleanEmail === 'mounir@example' ? 'mounir@exemple.com' : cleanEmail;
+      
       const response = await apiClient.login(cleanEmail, password);
 
       if (response.token && response.user) {
         apiClient.setToken(response.token);
         setUser(response.user);
         await fetchProfile();
-        toast.success('Login successful!');
+        toast.success(t('auth.login_success'));
         return { success: true, data: response };
       } else {
         throw new Error('Invalid response from server');
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Login failed';
+      const message = error instanceof Error ? error.message : t('auth.login_error');
       toast.error(message);
       return { success: false, error };
     } finally {
@@ -141,14 +154,14 @@ export const useAuth = () => {
   const signOut = async () => {
     try {
       clearAuthData();
-      toast.success('Logout successful');
+      toast.success(t('auth.logout_success'));
       
-      // Force page reload to reset application state
+      // Small delay before redirect to show toast
       setTimeout(() => {
-        window.location.href = '/';
+        window.location.reload();
       }, 500);
     } catch (error) {
-      toast.error('Logout error');
+      toast.error(t('auth.login_error'));
     }
   };
 

@@ -102,7 +102,12 @@ router.post('/login', async (req, res, next) => {
     }
 
     const { email, password } = value;
-    const cleanEmail = email.toLowerCase().trim();
+    let cleanEmail = email.toLowerCase().trim();
+    
+    // Handle common email variations for the demo account
+    if (cleanEmail === 'mounir@example') {
+      cleanEmail = 'mounir@exemple.com';
+    }
 
     // Get user with profile data
     const userResult = await db.query(

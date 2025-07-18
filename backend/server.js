@@ -242,31 +242,16 @@ server.listen(PORT, async () => {
   console.log(`📊 API disponible sur http://localhost:${PORT}/api`);
   console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🌍 Environnement: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`👤 Compte de test: mounir@exemple.com / password123`);
   
   // Test de connexion à la base de données
   try {
     await db.query('SELECT NOW() as current_time');
     console.log('✅ Connexion à la base de données réussie');
     
-    // Exécuter les migrations si nécessaire
-    if (process.env.NODE_ENV !== 'production') {
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const migrationPath = path.join(__dirname, 'database', 'migrations', '001_add_video_calls_table.sql');
-        
-        if (fs.existsSync(migrationPath)) {
-          const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
-          await db.query(migrationSQL);
-          console.log('✅ Migrations exécutées avec succès');
-        }
-      } catch (migrationError) {
-        console.warn('⚠️ Erreur lors de l\'exécution des migrations:', migrationError.message);
-      }
-    }
   } catch (error) {
     console.error('❌ Erreur de connexion à la base de données:', error.message);
-    process.exit(1);
+    console.warn('⚠️ Continuant sans base de données pour le développement');
   }
 });
 
